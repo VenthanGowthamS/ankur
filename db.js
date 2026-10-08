@@ -75,6 +75,14 @@ CREATE TABLE IF NOT EXISTS events (
   is_sample INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_events_child_date ON events(child_id, date);
+CREATE TABLE IF NOT EXISTS buddies (
+  id INTEGER PRIMARY KEY,
+  child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  file TEXT NOT NULL,
+  mime TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT
@@ -138,6 +146,7 @@ function openDb(dataDir) {
   ensureColumn(db, 'entries', 'result', 'TEXT');
   ensureColumn(db, 'entries', 'subject', 'TEXT');
   ensureColumn(db, 'entries', 'score', 'TEXT');
+  ensureColumn(db, 'children', 'buddy_id', 'INTEGER'); // the Buddy picture this child chose; NULL = Ankur the sprout
   return db;
 }
 

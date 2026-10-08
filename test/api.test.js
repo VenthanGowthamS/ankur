@@ -340,3 +340,41 @@ test('outdated sample moments are swapped for the latest set on start; real ones
     db3.close();
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('buddy pictures: parents upload, the kid chooses, everyone else is fenced off', async () => {
+  const png = fs.readFileSync(path.join(__dirname, '..', 'demo', 'images', 'medal.png'));
+  const up = (name, type = 'image/png', cookie = parentCookie) => {
+    const f = new FormData(); f.set('name', name); f.set('picture', new Blob([png], { type }), 'pic.png');
+    return call('POST', '/api/children/1/buddies', { cookie, form: f });
+  };
+  familyCookie = cookieOf((await call('POST', '/api/login', { body: { email: 'g@x.com', password: 'grandma-pass' } })).res);
+  const made = await up('Star friend');
+  assert.equal(made.status, 201);
+  assert.equal((await up('Sneaky', 'image/svg+xml')).status, 400, 'no SVG');
+  assert.equal((await up('Grandma pick', 'image/png', familyCookie)).status, 403, 'family cannot upload');
+
+  const kid = cookieOf((await call('POST', '/api/login', { body: { email: 'mira', password: 'sprout1' } })).res);
+  const list = await call('GET', '/api/children/1/buddies', { cookie: kid });
+  assert.deepEqual(list.json.buddies.map((b) => b.name), ['Star friend']);
+  assert.equal(list.json.chosen, null, 'sprout by default');
+
+  assert.equal((await call('PUT', '/api/children/1/buddy', { cookie: familyCookie, body: { buddyId: made.json.id } })).status, 403);
+  assert.equal((await call('PUT', '/api/children/1/buddy', { cookie: kid, body: { buddyId: 9999 } })).status, 400);
+  assert.equal((await call('PUT', '/api/children/1/buddy', { cookie: kid, body: { buddyId: made.json.id } })).status, 200, 'kid picks');
+  assert.equal((await call('GET', '/api/children/1/buddies', { cookie: kid })).json.chosen, made.json.id);
+
+  const pic = await call('GET', `/buddy-pic/${made.json.id}`, { cookie: kid });
+  assert.equal(pic.status, 200);
+  assert.equal(pic.res.headers.get('content-type'), 'image/png');
+  assert.equal((await call('GET', `/buddy-pic/${made.json.id}`)).status, 401, 'never public');
+
+  // another child's kid login cannot see this picture
+  const c2 = await call('POST', '/api/children', { cookie: parentCookie, body: { name: 'Sibling' } });
+  await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Sib', email: 'sib', password: 'sib-pass', role: 'child', childId: c2.json.id } });
+  const sib = cookieOf((await call('POST', '/api/login', { body: { email: 'sib', password: 'sib-pass' } })).res);
+  assert.equal((await call('GET', `/buddy-pic/${made.json.id}`, { cookie: sib })).status, 403);
+  assert.equal((await call('PUT', '/api/children/1/buddy', { cookie: sib, body: { buddyId: null } })).status, 403);
+
+  assert.equal((await call('DELETE', `/api/buddies/${made.json.id}`, { cookie: parentCookie })).status, 200);
+  assert.equal((await call('GET', '/api/children/1/buddies', { cookie: kid })).json.chosen, null, 'back to the sprout');
+});

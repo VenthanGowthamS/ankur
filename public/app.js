@@ -123,7 +123,7 @@ function openForm({ title, fields, values = {}, submitLabel = 'Save', extra, onS
     if (f.type === 'textarea') input = h('textarea', { name: f.name, required: f.required, maxlength: f.max, value: v ?? '' });
     else if (f.type === 'select') input = h('select', { name: f.name }, f.options.map(([val, lab]) => h('option', { value: val, selected: String(v ?? f.default ?? '') === String(val) }, lab)));
     else if (f.type === 'checkbox') input = h('input', { type: 'checkbox', name: f.name, checked: v === undefined ? !!f.default : !!v });
-    else if (f.type === 'files') input = h('input', { type: 'file', name: f.name, accept: f.accept || 'image/*,audio/*,video/*,application/pdf', multiple: true });
+    else if (f.type === 'files') input = h('input', { type: 'file', name: f.name, accept: f.accept || 'image/*,audio/*,video/*,application/pdf', multiple: !f.single });
     else input = h('input', { type: f.type || 'text', name: f.name, required: f.required, maxlength: f.max, value: v ?? f.default ?? '', autocomplete: f.autocomplete || 'off', list: f.list });
     inputs[f.name] = input;
     if (f.type === 'checkbox') return h('label', { class: 'field check' }, input, f.label);
@@ -260,7 +260,7 @@ function renderShell() {
     await api('POST', '/api/logout'); state.user = null; state.buddy = null; boot();
   } }, state.previewKid ? '← Back to parent view' : 'Bye 👋');
   root().replaceChildren(h('div', { class: `shell${isKid() ? ' kid' : ''}` },
-    h('header', { class: 'topbar' }, h('div', { class: 'brand' }, isKid() ? buddyFace() : sproutSvg(), 'Ankur'), h('div', { class: 'spacer' }), switcher, bye),
+    h('header', { class: 'topbar' }, h('div', { class: 'brand' }, isKid() ? h('span', { class: 'brand-ic' }, buddyAvatar()) : sproutSvg(), 'Ankur'), h('div', { class: 'spacer' }), switcher, bye),
     tabs.length ? nav : null, main));
   if (isKid() && child()) mountBuddy(child());
   if (state.view === 'book' && isKid()) state.view = 'portfolio';
@@ -706,7 +706,24 @@ async function viewSettings(main) {
       h('div', { class: 'card item' },
         h('div', { class: 'main' }, h('div', { class: 'title' }, `See what ${c.nickname || c.name} sees`),
           h('div', { class: 'small muted' }, 'Preview the kid view with Buddy. Nothing changes.')),
-        h('button', { class: 'btn', onclick: () => { state.previewKid = true; state.view = 'portfolio'; renderShell(); } }, '👀 Preview kid view')));
+        h('button', { class: 'btn', onclick: () => { state.previewKid = true; state.buddy = null; state.view = 'portfolio'; renderShell(); } }, '👀 Preview kid view')));
+
+    // Buddy pictures: parents add them, the child chooses one by tapping Buddy.
+    const pics = await api('GET', `/api/children/${c.id}/buddies`);
+    const who = c.nickname || c.name;
+    parts.push(
+      h('div', { class: 'section-head' }, h('h2', null, `${who}’s buddies`),
+        pics.buddies.length < 12 && h('button', { class: 'btn small', onclick: () => buddyPicForm(c) }, '＋ Buddy picture')),
+      h('p', { class: 'muted small' }, `Add favourite characters or toys as pictures. ${who} taps Buddy → “Change my buddy” to pick one. Pictures stay private to your family, like every photo here.`),
+      h('div', { class: 'buddy-grid' },
+        h('div', { class: `card buddy-card${pics.chosen == null ? ' on' : ''}` }, buddyFace(), h('strong', null, 'Ankur the sprout'), h('span', { class: 'small muted' }, pics.chosen == null ? 'chosen' : 'default')),
+        pics.buddies.map((b) => h('div', { class: `card buddy-card${pics.chosen === b.id ? ' on' : ''}` },
+          h('img', { src: `/buddy-pic/${b.id}`, alt: '' }), h('strong', null, b.name),
+          h('span', { class: 'small muted' }, pics.chosen === b.id ? 'chosen' : ''),
+          h('button', { class: 'btn small ghost', onclick: async () => {
+            if (!(await confirmBox(`Remove ${b.name}?`, 'Remove'))) return;
+            try { await api('DELETE', `/api/buddies/${b.id}`); state.buddy = null; refresh(); } catch (ex) { toast(ex.message); }
+          } }, 'Remove')))));
 
     const sum = await api('GET', `/api/children/${c.id}/summary`);
     parts.push(
@@ -770,6 +787,21 @@ function childForm(c) {
     },
   });
 }
+function buddyPicForm(c) {
+  openForm({
+    title: 'Add a buddy picture', submitLabel: 'Add buddy', values: {},
+    fields: [
+      { name: 'name', label: 'Buddy’s name', required: true, max: 40, hint: 'This is what the buddy calls itself, e.g. “Hi, it’s me, Rapunzel!”' },
+      { name: 'picture', label: 'Picture (JPG, PNG, GIF or WebP, up to 8 MB)', type: 'files', accept: 'image/jpeg,image/png,image/gif,image/webp', single: true },
+    ],
+    onSubmit: async ({ values, files }) => {
+      if (!files.length) throw new Error('Choose a picture');
+      const fd = new FormData(); fd.set('name', values.name); fd.set('picture', files[0]);
+      await api('POST', `/api/children/${c.id}/buddies`, fd);
+      state.buddy = null; toast(`${values.name} added — ${c.nickname || c.name} can pick it from Buddy`); refresh();
+    },
+  });
+}
 function userForm() {
   openForm({
     title: 'Invite someone', submitLabel: 'Create account', values: { role: 'family' },
@@ -821,18 +853,35 @@ const CHEERS = [
   'Practice makes sparkle ✨', 'I’m so proud of you! 🎉', 'You can do hard things. I believe in you! 💪',
 ];
 
-async function mountBuddy(c) {
+// The child's chosen Buddy: one of the pictures a parent uploaded, or Ankur the sprout.
+const chosenBuddy = () => {
+  const b = state.buddy;
+  return (b && b.pics && b.pics.buddies.find((x) => x.id === b.pics.chosen)) || null;
+};
+function buddyAvatar(cls) {
+  const b = chosenBuddy();
+  return b ? h('img', { class: `buddy-img ${cls || ''}`, src: `/buddy-pic/${b.id}`, alt: '' }) : buddyFace(cls);
+}
+
+async function mountBuddy(c, openWith) {
   if (!state.buddy || state.buddy.childId !== c.id) {
-    try { state.buddy = { childId: c.id, facts: await api('GET', `/api/children/${c.id}/buddy`) }; } catch { return; }
+    try {
+      const [facts, pics] = await Promise.all([api('GET', `/api/children/${c.id}/buddy`), api('GET', `/api/children/${c.id}/buddies`)]);
+      state.buddy = { childId: c.id, facts, pics };
+    } catch { return; }
   }
   if (!document.getElementById('app').querySelector('.shell.kid')) return;
+  document.querySelector('.buddy')?.remove();
+  document.querySelector('.topbar .brand-ic')?.replaceChildren(buddyAvatar());
   const f = state.buddy.facts;
   const name = f.name;
+  const me = chosenBuddy();
+  const buddyName = me ? me.name : 'Ankur the sprout';
   const say = h('div', { class: 'bubble', 'aria-live': 'polite' });
   const pic = h('div', { class: 'bubble-pic' });
   const chips = h('div', { class: 'buddy-chips' });
-  const panel = h('div', { class: 'buddy-panel hidden', role: 'dialog', 'aria-label': 'Ankur the sprout' },
-    h('div', { class: 'buddy-head' }, h('strong', null, 'Ankur the sprout 🌱'),
+  const panel = h('div', { class: 'buddy-panel hidden', role: 'dialog', 'aria-label': buddyName },
+    h('div', { class: 'buddy-head' }, h('div', { class: 'buddy-who' }, buddyAvatar('mini'), h('strong', null, me ? buddyName : `${buddyName} 🌱`)),
       h('button', { class: 'btn small ghost', 'aria-label': 'Close', onclick: () => panel.classList.add('hidden') }, '✕')),
     say, pic, chips);
 
@@ -842,6 +891,20 @@ async function mountBuddy(c) {
     pic.replaceChildren(...(imageId ? [h('img', { src: `/media/${imageId}`, alt: alt || '' })] : []));
   };
   const goTo = (cat) => { if (cat === 'all') setFilter('all', 'all'); else setFilter(groupOf(cat), cat); document.getElementById('main')?.scrollIntoView({ behavior: 'smooth' }); };
+
+  // Pick a buddy: the sprout, or any picture a parent added.
+  const choose = () => {
+    talk('Who do you want as your buddy? Tap one!');
+    const options = [{ id: null, name: 'Ankur the sprout' }, ...state.buddy.pics.buddies];
+    pic.replaceChildren(h('div', { class: 'buddy-pick' }, options.map((o) =>
+      h('button', { class: 'pick', 'aria-pressed': String((state.buddy.pics.chosen ?? null) === o.id), onclick: async () => {
+        try {
+          const r = await api('PUT', `/api/children/${c.id}/buddy`, { buddyId: o.id });
+          state.buddy.pics.chosen = r.chosen;
+          mountBuddy(c, `Yay! I’m ${o.name}, your new buddy! Let’s look at your moments together. 🎉`);
+        } catch (ex) { talk(ex.message); }
+      } }, o.id ? h('img', { src: `/buddy-pic/${o.id}`, alt: '' }) : buddyFace(), h('span', null, o.name)))));
+  };
 
   const topics = [];
   if (f.total > 0) {
@@ -864,19 +927,22 @@ async function mountBuddy(c) {
   });
   if (state.filter !== 'all') topics.push(['🌈 Show everything', () => goTo('all')]);
   topics.push(['🎉 Cheer me on', () => talk(pick(CHEERS))]);
+  if (state.buddy.pics.buddies.length) topics.push(['🎭 Change my buddy', choose]);
 
   chips.replaceChildren(...topics.map(([label, fn]) => h('button', { class: 'chip', onclick: fn }, label)));
   const hello = () => talk(f.total > 0
-    ? `Hi ${name}! I’m Ankur, your sprout friend. I keep all your moments safe. What would you like to see?`
+    ? (me ? `Hi ${name}! It’s me, ${buddyName}! I keep all your moments safe. What would you like to see?`
+      : `Hi ${name}! I’m Ankur, your sprout friend. I keep all your moments safe. What would you like to see?`)
     : `Hi ${name}! Your journey is just starting. Ask Mummy or Papa to add your first moment!`);
 
-  const btn = h('button', { class: 'buddy-btn', 'aria-label': 'Talk to Ankur the sprout', onclick: () => {
+  const btn = h('button', { class: 'buddy-btn', 'aria-label': `Talk to ${buddyName}`, onclick: () => {
     panel.classList.toggle('hidden');
     hint.remove();
     if (!panel.classList.contains('hidden')) hello();
-  } }, buddyFace());
+  } }, buddyAvatar());
   const hint = h('div', { class: 'buddy-hint' }, `Hi ${name}! Tap me 👋`);
-  document.body.append(h('div', { class: 'buddy' }, panel, hint, btn));
+  document.body.append(h('div', { class: 'buddy' }, panel, openWith ? null : hint, btn));
+  if (openWith) { panel.classList.remove('hidden'); talk(openWith); }
 }
 
 /* ---------- go ---------- */

@@ -503,6 +503,55 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     });
   });
 
+  // ---- Buddy pictures: parents upload a few pictures, the child picks one as their Buddy.
+  // Private like every photo here: served only to signed-in family, and a kid only sees their own.
+  const BUDDY_MIME = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp' };
+  const buddyUpload = multer({
+    storage: multer.diskStorage({ destination: uploadDir, filename: (req, file, cb) => cb(null, 'buddy-' + crypto.randomBytes(16).toString('hex') + BUDDY_MIME[file.mimetype]) }),
+    limits: { fileSize: 8 * 1024 * 1024, files: 1 },
+    fileFilter: (req, file, cb) => (BUDDY_MIME[file.mimetype] ? cb(null, true) : cb(new HttpError(400, 'Use a JPG, PNG, GIF or WebP picture'))),
+  });
+  const buddiesOf = (cid) => db.prepare('SELECT id, name FROM buddies WHERE child_id = ? ORDER BY id').all(cid);
+  app.get('/api/children/:cid/buddies', requireAuth, childParam, (req, res) => {
+    res.json({ chosen: req.child.buddy_id ?? null, buddies: buddiesOf(req.child.id) });
+  });
+  app.post('/api/children/:cid/buddies', requireParent, childParam, buddyUpload.single('picture'), (req, res) => {
+    try {
+      if (!req.file) throw new HttpError(400, 'Choose a picture');
+      const name = String(req.body.name || '').trim();
+      if (!name || name.length > 40) throw new HttpError(400, 'Give the buddy a name (up to 40 letters)');
+      if (buddiesOf(req.child.id).length >= 12) throw new HttpError(400, 'That’s plenty of buddies — remove one first');
+      const r = db.prepare('INSERT INTO buddies (child_id, name, file, mime) VALUES (?, ?, ?, ?)').run(req.child.id, name, req.file.filename, req.file.mimetype);
+      res.status(201).json({ id: Number(r.lastInsertRowid), name });
+    } catch (err) { discard(req.file ? [req.file] : []); throw err; }
+  });
+  app.delete('/api/buddies/:id', requireParent, (req, res) => {
+    const b = db.prepare('SELECT * FROM buddies WHERE id = ?').get(Number(req.params.id));
+    if (!b) throw new HttpError(404, 'Not found');
+    tx(db, () => {
+      db.prepare('UPDATE children SET buddy_id = NULL WHERE buddy_id = ?').run(b.id);
+      db.prepare('DELETE FROM buddies WHERE id = ?').run(b.id);
+    });
+    removeFile(b.file);
+    res.json({ ok: true });
+  });
+  // The one thing a kid can change: which buddy they want. Parents can set it too; family can't.
+  app.put('/api/children/:cid/buddy', requireAuth, childParam, (req, res) => {
+    if (req.user.role === 'family') throw new HttpError(403, 'Only the child or a parent can choose');
+    const id = req.body.buddyId == null ? null : Number(req.body.buddyId);
+    if (id !== null && !db.prepare('SELECT 1 FROM buddies WHERE id = ? AND child_id = ?').get(id, req.child.id)) throw new HttpError(400, 'Unknown buddy');
+    db.prepare('UPDATE children SET buddy_id = ? WHERE id = ?').run(id, req.child.id);
+    res.json({ chosen: id });
+  });
+  app.get('/buddy-pic/:id', requireAuth, (req, res, next) => {
+    const b = db.prepare('SELECT * FROM buddies WHERE id = ?').get(Number(req.params.id));
+    if (!b) return next(new HttpError(404, 'Not found'));
+    if (req.user.role === 'child' && req.user.child_id !== b.child_id) return next(new HttpError(403, 'Not yours'));
+    res.setHeader('Content-Type', b.mime);
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    res.sendFile(path.join(uploadDir, b.file), (err) => { if (err) next(err.status ? new HttpError(err.status, 'File missing') : err); });
+  });
+
   // ---- sample moments: try the app with fictional content, remove it with one tap
   app.post('/api/children/:cid/samples', requireParent, childParam, (req, res) => {
     const have = db.prepare('SELECT COUNT(*) AS n FROM entries WHERE child_id = ? AND is_sample = 1').get(req.child.id).n;
@@ -550,7 +599,7 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
       console.error(err);
       message = 'Something went wrong';
     }
-    if (req.path.startsWith('/api') || req.path.startsWith('/media')) return res.status(status).json({ error: message });
+    if (req.path.startsWith('/api') || req.path.startsWith('/media') || req.path.startsWith('/buddy-pic')) return res.status(status).json({ error: message });
     res.status(status).type('text/plain').send(message);
   });
 

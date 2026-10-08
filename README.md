@@ -17,7 +17,7 @@ A private growth portfolio, **extra-curricular tracker** and parent dashboard fo
   Each achievement can carry a level (school, zonal, national, international) and a result (medal, rank, belt).
 - **PDF portfolio** — one tap builds an A4 book: cover, highlights (biggest stage first), olympiad record with best and average % per subject, levels and belts, current classes, then every moment with photos. Filter by tab and dates, then *Save as PDF*. It uses the browser's print engine, so Hindi, Chinese and emoji come out right.
 - **Parent dashboard** — upcoming contests & exams, activities (Hindi tuition, art class, …) and an **exam ladder** (Cambridge pre-seeded; one-tap ladders for Mandarin YCT/HSK, ICAS and SASMO awards, SwimSafer, gymnastics, dance, drama and music grades, belts, coding and robotics; add any track).
-- **Kid login + Buddy** — each child can have a view-only login (fenced to their own profile) with a friendly, tappable sprout buddy. Parents don't see it. See [docs/WHY.md](docs/WHY.md).
+- **Kid login + Buddy** — each child can have a view-only login (fenced to their own profile) with a friendly, tappable sprout buddy. Parents don't see it. See [docs/WHY.md](docs/WHY.md). Parents can add their own **buddy pictures** (a favourite character or toy, named by you) in the Family tab, and the child picks one by tapping Buddy → *Change my buddy*. Pictures are private family uploads, never part of this repo.
 - **Multi-child ready**, installable on a phone (PWA), light/dark mode.
 
 ## Screens (sample data)
