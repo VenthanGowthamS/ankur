@@ -15,6 +15,8 @@ const CATEGORIES = Object.keys(catalog.CATS);
 const LEVELS = catalog.LEVELS.map(([k]) => k);
 const SUBJECTS = catalog.SUBJECTS.map(([k]) => k);
 const EVENT_KINDS = catalog.EVENT_KINDS.map(([k]) => k);
+const STAGES = catalog.PATHWAY.map((s) => s.key);
+const GOAL_STATUS = catalog.GOAL_STATUS.map(([k]) => k);
 const SESSION_DAYS = 90; // sliding: every visit renews it, so regular use never signs you out
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 // "2026-02-30" matches the pattern but is not a day; round-trip through Date to be sure.
@@ -39,6 +41,21 @@ class HttpError extends Error {
 
 // Field specs drive validation for the simple CRUD resources.
 const RESOURCES = {
+  // Goals on the pathway: PSLE -> secondary -> JC/poly -> university.
+  goals: {
+    table: 'goals',
+    order: "CASE stage WHEN 'psle' THEN 0 WHEN 'secondary' THEN 1 ELSE 2 END, status = 'achieved', sort, id",
+    fields: {
+      stage: { type: 'enum', values: STAGES, req: true },
+      title: { type: 'str', max: 160, req: true },
+      category: { type: 'enum', values: CATEGORIES },
+      target: { type: 'str', max: 200 },
+      due: { type: 'date' },
+      status: { type: 'enum', values: GOAL_STATUS },
+      notes: { type: 'str', max: 2000 },
+      sort: { type: 'int' },
+    },
+  },
   activities: {
     table: 'activities',
     order: 'active DESC, name COLLATE NOCASE',
@@ -96,6 +113,7 @@ const CHILD_FIELDS = {
   nickname: { type: 'str', max: 60 },
   dob: { type: 'date' },
   bio: { type: 'str', max: 2000 },
+  psle_year: { type: 'int', min: 2000, max: 2100 },
 };
 
 // Returns an object of validated column values. With partial=true, only the
@@ -114,8 +132,14 @@ function parseFields(spec, body, partial = false) {
       continue;
     }
     if (rule.type === 'int') {
+      if (v === '' || v === null) {
+        if (rule.req) throw new HttpError(400, `${key} is required`);
+        out[key] = null;
+        continue;
+      }
       const n = Number.parseInt(v, 10);
       if (!Number.isFinite(n)) throw new HttpError(400, `${key} must be a number`);
+      if ((rule.min != null && n < rule.min) || (rule.max != null && n > rule.max)) throw new HttpError(400, `${key} is out of range`);
       out[key] = n;
       continue;
     }
@@ -336,8 +360,8 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
   app.post('/api/children', requireParent, (req, res) => {
     const v = parseFields(CHILD_FIELDS, req.body);
     const id = tx(db, () => {
-      const r = db.prepare('INSERT INTO children (name, nickname, dob, bio) VALUES (?, ?, ?, ?)')
-        .run(v.name, v.nickname ?? null, v.dob ?? null, v.bio ?? null);
+      const r = db.prepare('INSERT INTO children (name, nickname, dob, bio, psle_year) VALUES (?, ?, ?, ?, ?)')
+        .run(v.name, v.nickname ?? null, v.dob ?? null, v.bio ?? null, v.psle_year ?? null);
       seedLadder(db, Number(r.lastInsertRowid));
       return Number(r.lastInsertRowid);
     });

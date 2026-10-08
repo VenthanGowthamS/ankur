@@ -83,6 +83,20 @@ CREATE TABLE IF NOT EXISTS buddies (
   mime TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS goals (
+  id INTEGER PRIMARY KEY,
+  child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+  stage TEXT NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT,
+  target TEXT,
+  due TEXT,
+  status TEXT NOT NULL DEFAULT 'working',
+  notes TEXT,
+  sort INTEGER NOT NULL DEFAULT 0,
+  is_sample INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT
@@ -147,6 +161,7 @@ function openDb(dataDir) {
   ensureColumn(db, 'entries', 'subject', 'TEXT');
   ensureColumn(db, 'entries', 'score', 'TEXT');
   ensureColumn(db, 'entries', 'role', 'TEXT'); // leadership/responsibility, e.g. Team captain, Class monitor
+  ensureColumn(db, 'children', 'psle_year', 'INTEGER'); // optional; otherwise estimated from date of birth
   ensureColumn(db, 'children', 'buddy_id', 'INTEGER'); // the Buddy picture this child chose; NULL = Ankur the sprout
   return db;
 }

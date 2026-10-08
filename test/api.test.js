@@ -268,6 +268,7 @@ test('sample moments load, never touch real ones, and remove cleanly', async () 
     assert.deepEqual(entries.map((e) => e.title), ['My real moment'], 'the real moment survives');
     assert.equal(fs.readdirSync(path.join(dir, 'uploads')).length, 0, 'sample files are deleted from disk');
     assert.equal((await (await j('/api/children/1/events', 'GET', null, cookie)).json()).length, 0);
+    assert.equal((await (await j('/api/children/1/goals', 'GET', null, cookie)).json()).length, 0, 'sample goals removed too');
     assert.equal((await j('/api/children/1/samples', 'POST', null)).status, 401, 'needs sign-in');
   } finally { srv?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -380,4 +381,22 @@ test('buddy pictures: parents upload, the kid chooses, everyone else is fenced o
 
   assert.equal((await call('DELETE', `/api/buddies/${made.json.id}`, { cookie: parentCookie })).status, 200);
   assert.equal((await call('GET', '/api/children/1/buddies', { cookie: kid })).json.chosen, null, 'back to the sprout');
+});
+
+test('pathway goals: parents plan per stage, others are kept out, PSLE year is optional', async () => {
+  familyCookie = cookieOf((await call('POST', '/api/login', { body: { email: 'g@x.com', password: 'grandma-pass' } })).res);
+  const made = await call('POST', '/api/children/1/goals', { cookie: parentCookie, body: { stage: 'psle', title: 'DSA-Sec in Robotics', category: 'robotics', target: 'Zonal award by P5', due: '2030-06-01' } });
+  assert.equal(made.status, 201);
+  assert.equal(made.json.status, 'working', 'defaults to working');
+  assert.equal((await call('POST', '/api/children/1/goals', { cookie: parentCookie, body: { stage: 'kindergarten', title: 'x' } })).status, 400, 'unknown stage');
+  assert.equal((await call('POST', '/api/children/1/goals', { cookie: parentCookie, body: { stage: 'psle' } })).status, 400, 'title required');
+  assert.equal((await call('GET', '/api/children/1/goals', { cookie: familyCookie })).status, 403, 'family cannot see goals');
+  const kid = cookieOf((await call('POST', '/api/login', { body: { email: 'mira', password: 'sprout1' } })).res);
+  assert.equal((await call('GET', '/api/children/1/goals', { cookie: kid })).status, 403, 'kid cannot see goals');
+  const done = await call('PUT', `/api/goals/${made.json.id}`, { cookie: parentCookie, body: { status: 'achieved' } });
+  assert.equal(done.json.status, 'achieved');
+  assert.equal((await call('PUT', '/api/children/1', { cookie: parentCookie, body: { psle_year: '' } })).status, 200, 'blank PSLE year is fine');
+  assert.equal((await call('PUT', '/api/children/1', { cookie: parentCookie, body: { psle_year: '2031' } })).json.psle_year, 2031);
+  assert.equal((await call('PUT', '/api/children/1', { cookie: parentCookie, body: { psle_year: '1800' } })).status, 400, 'nonsense year rejected');
+  assert.equal((await call('DELETE', `/api/goals/${made.json.id}`, { cookie: parentCookie })).status, 200);
 });

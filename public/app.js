@@ -2,7 +2,7 @@
 /* Ankur — a private growth portfolio and extra-curricular tracker. Vanilla JS, no build step.
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
-const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS } = window.ANKUR; // from catalog.js
+const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS } = window.ANKUR; // from catalog.js
 const subjectLabel = (k) => (SUBJECTS.find((x) => x[0] === k) || [, k])[1];
 const levelLabel = (k) => (LEVELS.find((x) => x[0] === k) || [, k])[1];
 const groupOf = (cat) => (CATS[cat] || CATS.other)[2];
@@ -165,7 +165,7 @@ async function boot() {
     state.user = me.user;
     state.children = await api('GET', '/api/children');
     if (!state.children.find((c) => c.id === state.childId)) state.childId = state.children[0]?.id ?? null;
-    if (!isParent() && state.view === 'dashboard') state.view = 'portfolio';
+    if (!isParent() && ['dashboard', 'goals'].includes(state.view)) state.view = 'portfolio';
     if (isKid()) state.view = 'portfolio';
     renderShell();
   } catch (ex) {
@@ -248,7 +248,7 @@ function renderShell() {
   document.title = 'Ankur';
   document.querySelector('.buddy')?.remove();
   const kids = state.children;
-  const tabs = isKid() ? [] : [['portfolio', '🌱', 'Portfolio'], ...(isParent() ? [['dashboard', '📊', 'Dashboard']] : []), ['settings', '⚙️', isParent() ? 'Family' : 'Account']];
+  const tabs = isKid() ? [] : [['portfolio', '🌱', 'Portfolio'], ...(isParent() ? [['dashboard', '📊', 'Dashboard'], ['goals', '🎯', 'Goals']] : []), ['settings', '⚙️', isParent() ? 'Family' : 'Account']];
   const main = h('main', { id: 'main' });
   const nav = h('nav', { class: 'nav', 'aria-label': 'Sections' }, tabs.map(([id, ic, label]) =>
     h('button', { 'aria-current': state.view === id ? 'page' : null, onclick: () => { state.view = id; renderShell(); } }, h('span', { class: 'ic' }, ic), label)));
@@ -264,7 +264,7 @@ function renderShell() {
     tabs.length ? nav : null, main));
   if (isKid() && child()) mountBuddy(child());
   if (state.view === 'book' && isKid()) state.view = 'portfolio';
-  const views = { portfolio: viewPortfolio, dashboard: viewDashboard, settings: viewSettings, book: viewBook };
+  const views = { portfolio: viewPortfolio, dashboard: viewDashboard, goals: viewGoals, settings: viewSettings, book: viewBook };
   views[state.view](main).catch((ex) => main.replaceChildren(h('div', { class: 'empty' }, ex.message)));
 }
 const refresh = () => renderShell();
@@ -421,19 +421,20 @@ const pct = (e) => {
 async function viewBook(main) {
   const c = child();
   const parent = isParent();
-  const [entries, ladder, activities] = await Promise.all([
+  const [entries, ladder, activities, goals] = await Promise.all([
     api('GET', `/api/children/${c.id}/entries`),
     parent ? api('GET', `/api/children/${c.id}/ladder`) : [],
     parent ? api('GET', `/api/children/${c.id}/activities`) : [],
+    parent ? api('GET', `/api/children/${c.id}/goals`) : [],
   ]);
   document.title = `${c.name} — Ankur portfolio`;
-  const opts = state.book || (state.book = { group: 'all', from: '', to: '', photos: true, notes: true, ladders: true });
+  const opts = state.book || (state.book = { group: 'all', from: '', to: '', photos: true, notes: true, ladders: true, goals: true });
   const book = h('div', { class: 'book' });
 
   const draw = () => {
     const picked = entries.filter((e) => (opts.group === 'all' || groupOf(e.category) === opts.group)
       && (!opts.from || e.date >= opts.from) && (!opts.to || e.date <= opts.to));
-    book.replaceChildren(...bookPages(c, picked, parent && opts.ladders ? ladder : [], parent ? activities.filter((a) => a.active) : [], opts));
+    book.replaceChildren(...bookPages(c, picked, parent && opts.ladders ? ladder : [], parent ? activities.filter((a) => a.active) : [], opts, parent && opts.goals ? goals : []));
   };
 
   const set = (k) => (ev) => { opts[k] = ev.target.type === 'checkbox' ? ev.target.checked : ev.target.value; draw(); };
@@ -455,13 +456,14 @@ async function viewBook(main) {
       h('label', { class: 'field' }, 'To', h('input', { type: 'date', value: opts.to, onchange: set('to') })),
       h('label', { class: 'field check' }, h('input', { type: 'checkbox', checked: opts.photos, onchange: set('photos') }), 'Photos'),
       h('label', { class: 'field check' }, h('input', { type: 'checkbox', checked: opts.notes, onchange: set('notes') }), 'Notes'),
-      parent && h('label', { class: 'field check' }, h('input', { type: 'checkbox', checked: opts.ladders, onchange: set('ladders') }), 'Levels & activities')),
+      parent && h('label', { class: 'field check' }, h('input', { type: 'checkbox', checked: opts.ladders, onchange: set('ladders') }), 'Levels & activities'),
+      parent && h('label', { class: 'field check' }, h('input', { type: 'checkbox', checked: opts.goals !== false, onchange: set('goals') }), 'Goals')),
     h('p', { class: 'small muted' }, 'Tip: in the print window choose “Save as PDF”. On iPhone, tap Share → Print, then pinch out on the preview to get the PDF.'));
   draw();
   main.replaceChildren(toolbar, book);
 }
 
-function bookPages(c, entries, ladder, activities, opts) {
+function bookPages(c, entries, ladder, activities, opts, goals = []) {
   const name = c.nickname || c.name;
   const dates = entries.map((e) => e.date).sort();
   const range = dates.length ? `${fmtDate(opts.from || dates[0])} – ${fmtDate(opts.to || dates[dates.length - 1])}` : 'No moments in this range';
@@ -532,6 +534,15 @@ function bookPages(c, entries, ladder, activities, opts) {
       table(['Activity', 'Area', 'When', 'Teacher / place'], activities.map((a) => [a.name, CATS[a.category]?.[1] || '', a.schedule, a.provider]))));
   }
 
+  // Pathway goals, stage by stage
+  if (goals.length) {
+    pages.push(h('section', { class: 'b-sec' }, h('h2', null, '🎯 Pathway goals'),
+      PATHWAY.filter((s) => goals.some((g) => g.stage === s.key)).map((s) => h('div', { class: 'b-card b-goals' },
+        h('strong', null, `${s.emoji} ${s.title}`),
+        goals.filter((g) => g.stage === s.key).map((g) => h('div', null,
+          `${(GOAL_STATUS.find((x) => x[0] === g.status) || [, ''])[1]} — ${g.title}${g.target ? ` · ${g.target}` : ''}`))))));
+  }
+
   // The journey, tab by tab, area by area
   for (const [g, ge, gl] of GROUPS) {
     const ks = Object.keys(CATS).filter((k) => CATS[k][2] === g && areas.has(k));
@@ -554,6 +565,193 @@ function bookPages(c, entries, ladder, activities, opts) {
   }
   pages.push(h('footer', { class: 'b-foot' }, `${name}’s portfolio · made with Ankur on ${fmtDate(todayIso())} · a private family record`));
   return pages;
+}
+
+/* ---------- Goals: the pathway PSLE → secondary → JC/poly → university ----------
+   Each stage shows what it asks for (from the catalog), the evidence already in her portfolio,
+   and the goals we set — so "how do we get there" is answered by her own record. */
+const psleYearOf = (c) => c.psle_year || (c.dob ? Number(c.dob.slice(0, 4)) + 12 : null);
+function stageNow(c) {
+  const p = psleYearOf(c), y = new Date().getFullYear();
+  if (!p || y <= p) return 'psle';
+  return y <= p + 4 ? 'secondary' : 'university';
+}
+const LEVEL_NAME = ['', 'School', 'Zonal', 'National', 'International'];
+const LANG_SUBJECTS = ['english', 'chinese', 'hindi'];
+const bestLevel = (rows) => rows.reduce((b, e) => Math.max(b, LEVEL_RANK[e.level] || 0), 0);
+const yearsOf = (rows) => {
+  if (rows.length < 2) return 0;
+  const d = rows.map((r) => r.date).sort();
+  return (parseDay(d[d.length - 1]) - parseDay(d[0])) / (365.25 * 864e5);
+};
+const yrs = (n) => (n >= 1 ? `${n.toFixed(1)} yrs` : n > 0 ? `${Math.max(1, Math.round(n * 12))} months` : 'just started');
+function inDsaArea(e, cats) {
+  if (cats === 'role') return !!e.role;
+  if (e.category === 'olympiad') return cats.includes('olympiad') ? !LANG_SUBJECTS.includes(e.subject) : cats.includes('chinese') && LANG_SUBJECTS.includes(e.subject);
+  return cats.includes(e.category);
+}
+
+// One evidence row: label, what she has, and a nudge when it's empty.
+const evRow = (icon, label, value, detail, gap, pctWidth) => h('div', { class: `ev-row${value ? '' : ' gap'}` },
+  h('span', { class: 'ev-ic' }, icon),
+  h('div', { class: 'main' },
+    h('div', { class: 'ev-top' }, h('strong', null, label), h('span', { class: 'ev-n' }, value ? String(value) : '—')),
+    pctWidth != null && h('div', { class: 'meter' }, h('span', { 'data-w': pctWidth })),
+    h('div', { class: 'small muted' }, value ? detail : gap)));
+
+function evidenceFor(stage, entries, activities) {
+  const roles = entries.filter((e) => e.role);
+  const community = entries.filter((e) => e.category === 'community');
+  const repped = entries.filter((e) => e.level);
+  const byCat = new Map();
+  entries.forEach((e) => { if (!byCat.has(e.category)) byCat.set(e.category, []); byCat.get(e.category).push(e); });
+  const latest = (rows) => rows.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
+
+  if (stage === 'psle') {
+    // Where would a DSA-Sec application be strongest? Count, highest level and years of commitment per talent area.
+    const areas = DSA_AREAS.map(([label, icon, cats]) => {
+      const rows = entries.filter((e) => inDsaArea(e, cats));
+      const best = bestLevel(rows);
+      return { label, icon, rows, best, strength: rows.length + best * 3 };
+    }).sort((a, b) => b.strength - a.strength);
+    const max = Math.max(1, ...areas.map((a) => a.strength));
+    return [
+      h('p', { class: 'small muted' }, 'DSA-Sec talent areas, strongest first — built from her moments.'),
+      ...areas.map((a, i) => {
+        const row = evRow(a.icon, a.label, a.rows.length,
+          [`${a.rows.length} moment${a.rows.length > 1 ? 's' : ''}`, a.best && `best: ${LEVEL_NAME[a.best]} level`, yrs(yearsOf(a.rows))].filter(Boolean).join(' · '),
+          'Nothing yet — fine if this isn’t her area.', Math.round((a.strength / max) * 100));
+        if (i === 0 && a.rows.length) row.classList.add('top');
+        return row;
+      }),
+    ];
+  }
+  if (stage === 'secondary') {
+    const longest = [...byCat].map(([k, rows]) => [k, yearsOf(rows)]).sort((a, b) => b[1] - a[1])[0];
+    const r = latest(roles);
+    return [
+      h('p', { class: 'small muted' }, 'LEAPS — what secondary schools count for co-curricular bonus points.'),
+      evRow('👑', 'Leadership', roles.length, r ? `latest: ${r.role} — ${r.title}` : '', 'No roles yet. Class monitor, team presenter or a VIA project lead all count — add a role to the moment.'),
+      evRow('🏆', 'Achievement', repped.length, `represented at school level or above · best: ${LEVEL_NAME[bestLevel(repped)] || '—'}`, 'No representation yet. Set the “Level” on contests she takes part in.'),
+      evRow('📅', 'Participation', activities.filter((a) => a.active).length,
+        longest && longest[1] ? `active classes · longest commitment: ${CATS[longest[0]]?.[1] || longest[0]}, ${yrs(longest[1])}` : 'active classes',
+        'No regular activities yet — add them on the Dashboard.'),
+      evRow('🤝', 'Service', community.length, `community moments · latest: ${latest(community)?.title || ''}`, 'No community service yet. Values in Action (VIA) projects count — use the Community area.'),
+    ];
+  }
+  // university
+  const deep = [...byCat].filter(([, rows]) => rows.length >= 2).map(([k, rows]) => [k, yearsOf(rows), rows.length])
+    .sort((a, b) => b[1] - a[1] || b[2] - a[2]).slice(0, 3);
+  const top = entries.filter((e) => ['national', 'international'].includes(e.level));
+  const subjects = new Set(entries.filter((e) => e.subject && ['olympiad', 'exam'].includes(e.category)).map((e) => e.subject));
+  return [
+    h('p', { class: 'small muted' }, 'What aptitude-based admission here, and US and UK universities, look for.'),
+    evRow('🌳', 'Depth — her 3 longest-running areas', deep.length, deep.map(([k, y]) => `${CATS[k]?.[1] || k} (${yrs(y)})`).join(' · '), 'Not enough moments yet to show depth.'),
+    evRow('👑', 'Leadership', roles.length, `${roles.length} role${roles.length > 1 ? 's' : ''} recorded`, 'No roles yet.'),
+    evRow('🤝', 'Community service', community.length, `${community.length} moment${community.length > 1 ? 's' : ''}`, 'None yet.'),
+    evRow('🌍', 'Exceptional talent', top.length, `${top.length} national or international result${top.length > 1 ? 's' : ''}`, 'No national or international results yet.'),
+    evRow('📚', 'Subject depth (UK)', subjects.size, `olympiads or exams in ${[...subjects].map(subjectLabel).join(', ')}`, 'No olympiads or exams with a subject yet.'),
+  ];
+}
+
+async function viewGoals(main) {
+  const c = child();
+  if (!c) return main.replaceChildren(h('div', { class: 'empty' }, 'Add a child first, from the Family tab.'));
+  const [entries, activities, goals] = await Promise.all([
+    api('GET', `/api/children/${c.id}/entries`),
+    api('GET', `/api/children/${c.id}/activities`),
+    api('GET', `/api/children/${c.id}/goals`),
+  ]);
+  const psle = psleYearOf(c);
+  const now = stageNow(c);
+  const name = c.nickname || c.name;
+
+  const steps = h('div', { class: 'path-steps', role: 'list' }, PATHWAY.map((s, i) => h('a', {
+    class: `path-step${s.key === now ? ' now' : ''}`, role: 'listitem', href: `#stage-${s.key}`,
+    onclick: (ev) => { ev.preventDefault(); const d = document.getElementById(`stage-${s.key}`); d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
+  },
+  h('span', { class: 'ps-ic' }, s.emoji),
+  h('span', { class: 'ps-t' }, s.exam),
+  h('span', { class: 'ps-y' }, psle ? `≈ ${psle + s.offset}` : '—'),
+  i < PATHWAY.length - 1 ? h('span', { class: 'ps-arrow', 'aria-hidden': 'true' }, '→') : null)));
+
+  const goalCard = (g) => {
+    const rows = g.category ? entries.filter((e) => e.category === g.category).sort((a, b) => b.date.localeCompare(a.date)) : [];
+    const [emo, lab] = g.category ? (CATS[g.category] || CATS.other) : ['🎯', ''];
+    return h('div', { class: `card goal ${g.status}`, 'data-cat': g.category || 'other' },
+      h('div', { class: 'goal-head' },
+        h('span', { class: `chip status ${g.status}` }, (GOAL_STATUS.find((s) => s[0] === g.status) || [, g.status])[1]),
+        h('div', { class: 'spacer' }),
+        g.status !== 'achieved' && h('button', { class: 'btn small', onclick: async () => {
+          try { await api('PUT', `/api/goals/${g.id}`, { status: 'achieved' }); toast('Goal achieved — well done! 🎉'); refresh(); } catch (ex) { toast(ex.message); }
+        } }, '✓ Achieved'),
+        h('button', { class: 'btn small ghost', 'aria-label': `Edit ${g.title}`, onclick: () => goalForm(c, g.stage, g) }, 'Edit')),
+      h('h3', null, g.title),
+      g.target && h('p', { class: 'goal-target' }, `🎯 ${g.target}`),
+      h('div', { class: 'small muted' }, [g.due && `by ${fmtDate(g.due)}`, g.category && `${emo} ${lab}`].filter(Boolean).join(' · ')),
+      g.category && h('div', { class: 'goal-ev' }, rows.length
+        ? `${rows.length} ${lab} moment${rows.length > 1 ? 's' : ''} so far · latest: ${rows[0].title}${rows[0].result ? ` — ${rows[0].result}` : ''}`
+        : `No ${lab} moments yet — they’ll show here as you add them.`),
+      g.notes && h('p', { class: 'small' }, g.notes));
+  };
+
+  const stageCard = (s) => {
+    const mine = goals.filter((g) => g.stage === s.key);
+    const done = mine.filter((g) => g.status === 'achieved').length;
+    if (!state.openStages) state.openStages = new Set([now]);
+    const det = h('details', { class: 'card stage', id: `stage-${s.key}`, open: state.openStages.has(s.key),
+      ontoggle: (ev) => { state.openStages[ev.target.open ? 'add' : 'delete'](s.key); } },
+      h('summary', null,
+        h('span', { class: 'st-ic' }, s.emoji),
+        h('div', { class: 'main' }, h('h2', null, s.title),
+          h('div', { class: 'small muted' }, [`${s.exam}${psle ? ` ≈ ${psle + s.offset}` : ''}`, s.key === now && 'where she is now', mine.length && `${done}/${mine.length} goals achieved`].filter(Boolean).join(' · ')))),
+      h('div', { class: 'stage-body' },
+        h('h3', null, 'What it asks for'),
+        h('ul', { class: 'asks' }, s.asks.map((a) => h('li', null, a))),
+        h('h3', null, `${name}’s evidence so far`),
+        h('div', { class: 'evidence' }, evidenceFor(s.key, entries, activities)),
+        h('div', { class: 'section-head' }, h('h3', null, 'Our goals'), h('button', { class: 'btn small primary', onclick: () => goalForm(c, s.key) }, '＋ Goal')),
+        mine.length ? h('div', { class: 'list' }, mine.map(goalCard)) : h('div', { class: 'empty small' }, 'No goals for this stage yet. Tap ＋ Goal — there are ideas to start from.'),
+        h('p', { class: 'sources small muted' }, 'Rules as published in 2026 — they change, so check each year. Sources: ',
+          s.sources.map(([t, u], i) => [i ? ' · ' : '', h('a', { href: u, target: '_blank', rel: 'noopener noreferrer' }, t)]))));
+    return det;
+  };
+
+  main.replaceChildren(
+    h('section', { class: 'hero goals-hero' },
+      h('h1', null, `${name}’s pathway`),
+      h('p', { class: 'muted' }, psle
+        ? `PSLE ≈ ${psle}${c.psle_year ? '' : ' (estimated from the birthday — set the exact year in Family → Edit profile)'}. Each stage shows what it asks for, what her record already has, and the goals you set.`
+        : 'Add her date of birth or PSLE year in Family → Edit profile to see the timeline.'),
+      steps),
+    ...PATHWAY.map(stageCard));
+  // meter widths are set here, not inline, so the strict CSP (no inline styles) stays intact
+  main.querySelectorAll('.meter span[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
+}
+
+function goalForm(c, stage, g) {
+  const editing = !!g;
+  const ideas = h('datalist', { id: 'goal-ideas' }, (GOAL_IDEAS[stage] || []).map((t) => h('option', { value: t })));
+  openForm({
+    title: editing ? 'Edit goal' : `New goal — ${(PATHWAY.find((s) => s.key === stage) || {}).title || ''}`,
+    submitLabel: editing ? 'Save' : 'Add goal',
+    values: g || { stage, status: 'working' },
+    fields: [
+      { name: 'title', label: 'Goal', required: true, max: 160, list: 'goal-ideas', hint: 'Start typing for ideas, or write your own.' },
+      { name: 'target', label: 'What “done” looks like', max: 200, hint: 'e.g. A zonal robotics award by Primary 5 · AL3 or better in every subject' },
+      { name: 'category', label: 'Linked area — its moments show up as progress', type: 'select', options: [['', '— none —'], ...catOptions()] },
+      { name: 'due', label: 'By when', type: 'date' },
+      { name: 'status', label: 'Status', type: 'select', options: GOAL_STATUS },
+      { name: 'stage', label: 'Stage', type: 'select', options: PATHWAY.map((s) => [s.key, `${s.emoji} ${s.title}`]) },
+      { name: 'notes', label: 'How we’ll get there', type: 'textarea', max: 2000 },
+    ],
+    extra: ideas,
+    onSubmit: async ({ values }) => {
+      await api(editing ? 'PUT' : 'POST', editing ? `/api/goals/${g.id}` : `/api/children/${c.id}/goals`, values);
+      refresh();
+    },
+    onDelete: editing ? async () => { await api('DELETE', `/api/goals/${g.id}`); closeModal(); refresh(); } : null,
+  });
 }
 
 /* ---------- dashboard (parents) ---------- */
@@ -800,6 +998,7 @@ function childForm(c) {
       { name: 'nickname', label: 'Short name shown in the app', max: 60 },
       { name: 'dob', label: 'Date of birth', type: 'date' },
       { name: 'bio', label: 'A line about them', type: 'textarea', max: 2000 },
+      { name: 'psle_year', label: 'PSLE year', type: 'number', hint: 'Leave blank and we estimate it from the birthday (Primary 6 is the year they turn 12). Set it if different.' },
     ],
     onSubmit: async ({ values }) => {
       if (editing) { const u = await api('PUT', `/api/children/${c.id}`, values); Object.assign(c, u); }

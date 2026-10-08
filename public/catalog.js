@@ -87,7 +87,76 @@
 
   const EVENT_KINDS = [['contest', 'Contest'], ['exam', 'Exam'], ['performance', 'Performance'], ['school', 'School'], ['other', 'Other']];
 
-  const catalog = Object.freeze({ GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS });
+  // ---- Pathway: the three big transitions in Singapore schooling, and what each one asks for.
+  // Rules as published by MOE and the universities in 2026. They change — review this once a year.
+  // `offset` = years after the PSLE year when that stage's exam is sat (used for the timeline).
+  const PATHWAY = [
+    {
+      key: 'psle', emoji: '🎒', title: 'Primary → Secondary', exam: 'PSLE', offset: 0,
+      asks: [
+        'PSLE Score: English, Mother Tongue, Maths and Science, each graded AL1–AL8. Total 4–32, lower is better (AL1 = 90 marks and above).',
+        'A score of 4–20 means Posting Group 3: most subjects at G3, the most demanding level.',
+        'Direct School Admission (DSA-Sec): apply in May–June of Primary 6 on a talent — sports, arts, debate & public speaking, science/maths/engineering, languages, uniformed groups or leadership. Trials and interviews by August; results come with PSLE results in November.',
+        'Schools look for impact, not titles: what she did with a role matters more than the role.',
+      ],
+      sources: [
+        ['MOE: PSLE scoring & Full Subject-Based Banding', 'https://www.moe.gov.sg/microsites/psle-fsbb/full-subject-based-banding/faq.html'],
+        ['DSA-Sec talent areas & 2026 timeline', 'https://speechacademyasia.com/blog/leadership-dsa-in-singapore-a-complete-guide/'],
+      ],
+    },
+    {
+      key: 'secondary', emoji: '🏫', title: 'Secondary → JC / Poly', exam: 'SEC (Sec 4)', offset: 4,
+      asks: [
+        'From the 2024 Secondary 1 cohort, O- and N-Levels are replaced by the Singapore-Cambridge Secondary Education Certificate (SEC), with each subject at G1, G2 or G3.',
+        'Junior college: from 2028 the bar becomes L1R4 of 16 points or better (it was L1R5 of 20), with up to 3 bonus points.',
+        'Co-curricular bonus points come from LEAPS — Leadership, Achievement, Participation and Service. “Excellent” earns 2 points, “Good” earns 1.',
+        'DSA-JC (portfolio, CCA record, personal statement) and Poly Early Admissions (apply in June, interviews July–August) both reward a documented record.',
+      ],
+      sources: [
+        ['MOE: SEC and new progression criteria', 'https://www.moe.gov.sg/microsites/psle-fsbb/full-subject-based-banding/faq.html'],
+        ['Post-secondary pathways briefing (2026)', 'https://www.unitysec.moe.edu.sg/files/USS_2026_Sec_4E_Parent_Briefing_Slides.pdf'],
+      ],
+    },
+    {
+      key: 'university', emoji: '🎓', title: 'JC → University', exam: 'A-Levels', offset: 6,
+      asks: [
+        'NUS, NTU, SMU: University Admission Score out of 70 (three H2 subjects, General Paper, a pass in Project Work, Mother Tongue), compared with each course’s Indicative Grade Profile.',
+        'Aptitude-Based Admission looks beyond grades: leadership, community service, exceptional talent and demonstrated interest.',
+        'US universities (Common App): holistic — depth in 3–4 activities over years, leadership and impact, not a long list.',
+        'UK universities (UCAS): subject depth — olympiads, reading and projects beyond the syllabus, and what she learned from them.',
+      ],
+      sources: [
+        ['Local university admission (Nanyang JC guidance)', 'https://ecg.nanyangjc.moe.edu.sg/a-level-results-release/factors-to-consider/'],
+        ['US activities list & what officers weigh', 'https://collegeessayguy.com/blog/extracurricular-activities-guide'],
+        ['UK super-curricular activities', 'https://www.timeshighereducation.com/counsellor/admissions-processes-and-funding/what-are-supercurricular-activities-and-why-do-they'],
+      ],
+    },
+  ];
+
+  // Goal ideas offered when adding a goal for each stage — a starting point, all editable.
+  const GOAL_IDEAS = {
+    psle: ['DSA-Sec in Science, maths & engineering', 'DSA-Sec in Sports & games', 'DSA-Sec in performing arts', 'DSA-Sec in Leadership',
+      'PSLE Score in Posting Group 3 (4–20)', 'AL1 in Maths', 'AL3 or better in Mother Tongue', 'Build a leadership record'],
+    secondary: ['LEAPS “Excellent” — 2 bonus points', 'L1R4 of 16 or better for JC', 'DSA-JC portfolio ready by Sec 4',
+      'Poly Early Admission for a chosen course', 'Represent the school at national level', 'Lead a CCA'],
+    university: ['University Admission Score target for a chosen course', 'Aptitude-Based Admission portfolio',
+      'US: 3–4 activities kept up for years', 'UK: reading and projects beyond the syllabus', 'A national or international award'],
+  };
+
+  // DSA-Sec talent areas, mapped onto Ankur's areas so the app can show where her evidence already is.
+  // 'role' means "any moment with a leadership role".
+  const DSA_AREAS = [
+    ['Sports & games', '⚽', ['sports', 'swimming', 'gymnastics', 'martial', 'skating']],
+    ['Visual, literary & performing arts', '🎨', ['art', 'dance', 'singing', 'stage', 'writing']],
+    ['Debate & public speaking', '🎤', ['speech']],
+    ['Science, maths & engineering', '🔬', ['olympiad', 'coding', 'robotics']],
+    ['Languages & humanities', '🀄', ['chinese', 'hindi']],
+    ['Leadership', '👑', 'role'],
+  ];
+
+  const GOAL_STATUS = [['idea', '💭 Idea'], ['working', '🚀 Working on it'], ['achieved', '✅ Achieved']];
+
+  const catalog = Object.freeze({ GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS });
   if (typeof module === 'object' && module.exports) module.exports = catalog;
   else root.ANKUR = catalog;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

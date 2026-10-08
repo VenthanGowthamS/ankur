@@ -7,7 +7,7 @@ const crypto = require('crypto');
 
 const DEMO = path.join(__dirname, 'demo');
 // Bump whenever the sample set changes: apps that already show samples swap in the new set on next start.
-const SAMPLE_VERSION = 4;
+const SAMPLE_VERSION = 5;
 const MIME = { '.png': 'image/png', '.wav': 'audio/wav', '.pdf': 'application/pdf' };
 const find = (f) => ['images', 'media'].map((d) => path.join(DEMO, d, f)).find((p) => fs.existsSync(p));
 
@@ -116,6 +116,18 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   activity('Swimming (SwimSafer)', 'swimming', 'Saturdays 8am', 'Swim school');
   activity('Gymnastics', 'gymnastics', 'Wednesdays 6pm', 'Gym club');
   activity('Values in Action (VIA)', 'community', 'Fortnightly', 'School');
+
+  // Pathway goals: what we're aiming for at each stage, tied to an area so progress shows up by itself.
+  const goal = (stage, title, category, target, status, notes, sort) =>
+    db.prepare('INSERT INTO goals (child_id, stage, title, category, target, status, notes, sort, is_sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)')
+      .run(childId, stage, title, category, target, status, notes, sort);
+  goal('psle', 'DSA-Sec in Science, maths & engineering', 'robotics', 'A zonal robotics award and a Silver in a maths olympiad by Primary 5', 'working', 'Keep robotics and SASMO going every year; save every certificate here.', 0);
+  goal('psle', 'PSLE Score in Posting Group 3 (4–20)', 'exam', 'AL3 or better in all four subjects', 'working', 'Science is strongest; Mother Tongue needs steady practice.', 1);
+  goal('psle', 'Build a leadership record', 'school', 'At least one role a year — class monitor, team presenter, VIA project lead', 'working', null, 2);
+  goal('psle', 'Second DSA option: performing arts', 'dance', 'Ballet Grade 2 and one stage performance a year', 'idea', null, 3);
+  goal('secondary', 'LEAPS “Excellent” — 2 bonus points', 'community', 'A leadership role in a CCA, school representation, and VIA every year', 'idea', null, 0);
+  goal('secondary', 'DSA-JC portfolio ready by Sec 4', null, 'One PDF portfolio covering 4+ years of robotics and olympiads', 'idea', null, 1);
+  goal('university', 'Depth: 3 areas kept up for 5+ years', null, 'Robotics, maths olympiads and dance', 'idea', 'This is what US and UK universities, and aptitude-based admission here, look for.', 0);
 }
 
 // Removes everything flagged as sample for one child, including uploaded files. Returns the file names to delete.
@@ -124,6 +136,7 @@ function removeSampleContent(db, childId) {
   db.prepare('DELETE FROM entries WHERE child_id = ? AND is_sample = 1').run(childId);
   db.prepare('DELETE FROM events WHERE child_id = ? AND is_sample = 1').run(childId);
   db.prepare('DELETE FROM activities WHERE child_id = ? AND is_sample = 1').run(childId);
+  db.prepare('DELETE FROM goals WHERE child_id = ? AND is_sample = 1').run(childId);
   return files;
 }
 

@@ -17,6 +17,12 @@ A private growth portfolio, **extra-curricular tracker** and parent dashboard fo
   Any moment can also carry a **role** — Team captain, Class monitor, Club leader, MUN delegate — tracked separately from just taking part, because that's what universities (and GIIS/MOE's own leadership tracks) actually weigh. See [docs/WHY.md](docs/WHY.md#does-this-actually-help-with-university-applications) for what that's based on.
 
   Each achievement can carry a level (school, zonal, national, international) and a result (medal, rank, belt).
+- **Goals tab — the pathway** — Singapore's three transitions, each with what it asks for (2026 rules, with sources), her evidence so far, and the goals you set:
+  - 🎒 **Primary → Secondary** — PSLE scoring and Posting Groups, plus DSA-Sec: her portfolio ranked by DSA talent area (strongest first, by count, highest level and years)
+  - 🏫 **Secondary → JC / Poly** — SEC (replacing O-Levels), the new JC/poly criteria, and LEAPS (Leadership, Achievement, Participation, Service) built from her record
+  - 🎓 **JC → University** — UAS and aptitude-based admission at NUS/NTU/SMU, plus what US and UK universities weigh: depth, leadership, service, exceptional talent, subject depth
+
+  Goals can be linked to an area, so new moments in that area show up as progress by themselves. The timeline uses her PSLE year (estimated from the birthday, or set in her profile).
 - **PDF portfolio** — one tap builds an A4 book: cover, highlights (biggest stage first), olympiad record with best and average % per subject, levels and belts, current classes, then every moment with photos. Filter by tab and dates, then *Save as PDF*. It uses the browser's print engine, so Hindi, Chinese and emoji come out right.
 - **Parent dashboard** — upcoming contests & exams, activities (Hindi tuition, art class, …) and an **exam ladder** (Cambridge pre-seeded; one-tap ladders for Mandarin YCT/HSK, ICAS and SASMO awards, SwimSafer, gymnastics, dance, drama and music grades, belts, coding and robotics; add any track).
 - **Kid login + Buddy** — each child can have a view-only login (fenced to their own profile) with a friendly, tappable sprout buddy. Parents don't see it. See [docs/WHY.md](docs/WHY.md). Parents can add their own **buddy pictures** (a favourite character or toy, named by you) in the Family tab, and the child picks one by tapping Buddy → *Change my buddy*. Pictures are private family uploads, never part of this repo.
