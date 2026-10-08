@@ -6,7 +6,7 @@ const express = require('express');
 const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const { openDb, seedLadder, tx } = require('./db');
-const { addSampleContent, removeSampleContent } = require('./demo-content');
+const { addSampleContent, removeSampleContent, refreshSamples } = require('./demo-content');
 
 const catalog = require('./public/catalog');
 
@@ -153,6 +153,11 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
   if (process.env.TRUST_PROXY) app.set('trust proxy', 1);
 
   db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now());
+  {
+    const { files, refreshed } = refreshSamples(db, uploadDir, tx);
+    files.forEach((f) => fs.rm(path.join(uploadDir, f), { force: true }, () => {}));
+    if (refreshed) console.log(`Sample moments updated to the latest set for ${refreshed} child${refreshed > 1 ? 'ren' : ''}.`);
+  }
   const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
   // ---- security headers: this is a private app, keep it out of search engines and frames

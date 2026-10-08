@@ -6,6 +6,8 @@ const path = require('path');
 const crypto = require('crypto');
 
 const DEMO = path.join(__dirname, 'demo');
+// Bump whenever the sample set changes: apps that already show samples swap in the new set on next start.
+const SAMPLE_VERSION = 3;
 const MIME = { '.png': 'image/png', '.wav': 'audio/wav', '.pdf': 'application/pdf' };
 const find = (f) => ['images', 'media'].map((d) => path.join(DEMO, d, f)).find((p) => fs.existsSync(p));
 
@@ -16,6 +18,7 @@ function day(offset) {
 }
 
 function addSampleContent(db, uploadsDir, childId, createdBy) {
+  db.prepare("INSERT INTO meta (key, value) VALUES ('sample_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(SAMPLE_VERSION));
   const entry = (category, title, offset, notes, ...files) => {
     let level = null, result = null, subject = null, score = null;
     if (files.length && typeof files[files.length - 1] === 'object') ({ level = null, result = null, subject = null, score = null } = files.pop());
@@ -120,4 +123,21 @@ function removeSampleContent(db, childId) {
   return files;
 }
 
-module.exports = { addSampleContent, removeSampleContent };
+// Replaces outdated sample content with the current set, for every child that has samples loaded.
+// Real moments are never touched (only is_sample rows). Returns the old sample files to delete from disk.
+function refreshSamples(db, uploadsDir, tx) {
+  const row = db.prepare("SELECT value FROM meta WHERE key = 'sample_version'").get();
+  if (row && Number(row.value) === SAMPLE_VERSION) return { files: [], refreshed: 0 };
+  const kids = db.prepare('SELECT child_id, MIN(created_by) AS by FROM entries WHERE is_sample = 1 GROUP BY child_id').all();
+  const files = [];
+  tx(db, () => {
+    for (const k of kids) {
+      files.push(...removeSampleContent(db, k.child_id));
+      addSampleContent(db, uploadsDir, k.child_id, k.by);
+    }
+    db.prepare("INSERT INTO meta (key, value) VALUES ('sample_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(SAMPLE_VERSION));
+  });
+  return { files, refreshed: kids.length };
+}
+
+module.exports = { addSampleContent, removeSampleContent, refreshSamples, SAMPLE_VERSION };

@@ -315,3 +315,28 @@ test('one catalog drives server validation, tabs and colours', () => {
   }
   for (const [name, steps] of Object.entries(catalog.LADDERS)) assert.ok(steps.length >= 2, name);
 });
+
+test('outdated sample moments are swapped for the latest set on start; real ones stay', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ankur-refresh-'));
+  try {
+    const app1 = createApp({ dataDir: dir });
+    const db = app1.locals.db;
+    db.prepare("INSERT INTO users (name, email, password_hash, role) VALUES ('P', 'p@x.com', 'x', 'parent')").run();
+    db.prepare("INSERT INTO children (name) VALUES ('Kid')").run();
+    db.prepare("INSERT INTO entries (child_id, category, title, date, is_sample, created_by) VALUES (1, 'art', 'Old sample', '2026-01-01', 1, 1)").run();
+    db.prepare("INSERT INTO entries (child_id, category, title, date, is_sample, created_by) VALUES (1, 'art', 'Real painting', '2026-01-02', 0, 1)").run();
+    db.prepare("UPDATE meta SET value = '1' WHERE key = 'sample_version'").run();
+    db.prepare("INSERT OR IGNORE INTO meta (key, value) VALUES ('sample_version', '1')").run();
+    db.close();
+
+    const db2 = createApp({ dataDir: dir }).locals.db; // restart
+    const titles = db2.prepare('SELECT title FROM entries').all().map((r) => r.title);
+    assert.ok(titles.includes('Real painting'), 'real moment kept');
+    assert.ok(!titles.includes('Old sample'), 'old sample gone');
+    assert.ok(db2.prepare("SELECT COUNT(*) AS n FROM entries WHERE category = 'gymnastics' AND is_sample = 1").get().n > 0, 'new sample areas loaded');
+    db2.close();
+    const db3 = createApp({ dataDir: dir }).locals.db; // a second restart changes nothing
+    assert.equal(db3.prepare('SELECT COUNT(*) AS n FROM entries').get().n, titles.length);
+    db3.close();
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
