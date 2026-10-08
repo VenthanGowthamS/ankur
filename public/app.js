@@ -2,7 +2,7 @@
 /* Ankur — a private growth portfolio and extra-curricular tracker. Vanilla JS, no build step.
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
-const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS } = window.ANKUR; // from catalog.js
+const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE } = window.ANKUR; // from catalog.js
 const subjectLabel = (k) => (SUBJECTS.find((x) => x[0] === k) || [, k])[1];
 const levelLabel = (k) => (LEVELS.find((x) => x[0] === k) || [, k])[1];
 const groupOf = (cat) => (CATS[cat] || CATS.other)[2];
@@ -724,18 +724,143 @@ async function viewGoals(main) {
         ? `PSLE ≈ ${psle}${c.psle_year ? '' : ' (estimated from the birthday — set the exact year in Family → Edit profile)'}. Each stage shows what it asks for, what her record already has, and the goals you set.`
         : 'Add her date of birth or PSLE year in Family → Edit profile to see the timeline.'),
       steps),
-    ...PATHWAY.map(stageCard));
+    ...PATHWAY.map(stageCard),
+    uniSection(c, now, psle));
   // meter widths are set here, not inline, so the strict CSP (no inline styles) stays intact
   main.querySelectorAll('.meter span[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
 }
 
-function goalForm(c, stage, g) {
+/* ---------- Universities: where, and how they admit ----------
+   Parked while she's in primary school: at 7–12 the best preparation for any university is breadth and
+   enjoyment, and a target university tends to narrow what a child is allowed to love. Parents can still look.
+   Her own kid login never shows any of this. */
+const UNI_K = 1000 / 360; // matches scripts/build-worldmap.mjs: x = (lon + 180)·k, y = (90 − lat)·k
+function svgEl(tag, attrs, ...kids) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs || {})) if (v != null) el.setAttribute(k, v);
+  kids.forEach((kid) => kid != null && el.append(kid.nodeType ? kid : document.createTextNode(String(kid))));
+  return el;
+}
+function uniMap(region, onPick) {
+  const [, , label, [w, s, e, n]] = UNI_REGIONS.find((r) => r[0] === region);
+  // Equirectangular stretches maps away from the equator; squeeze x by cos(latitude) for regional views.
+  const kx = region === 'all' ? 1 : Math.cos(((s + n) / 2) * Math.PI / 180);
+  const X = (lon) => (lon + 180) * UNI_K * kx, Y = (lat) => (90 - lat) * UNI_K;
+  const x0 = X(w), y0 = Y(n), vw = X(e) - x0, vh = Y(s) - y0;
+  const unis = UNIS.filter((u) => u.region === region);
+  const svg = svgEl('svg', { class: 'uni-map', viewBox: `${x0} ${y0} ${vw} ${vh}`, preserveAspectRatio: 'xMidYMid meet', role: 'img', 'aria-label': `Map of universities — ${label}` },
+    svgEl('rect', { class: 'sea', x: x0 - vw, y: y0 - vh, width: vw * 3, height: vh * 3 }),
+    // Singapore uses its own detailed outline; the world outline is too coarse to show the island.
+    svgEl('path', { class: 'land', d: (region === 'sg' && window.ANKUR_WORLD_SG) || window.ANKUR_WORLD || '', transform: `scale(${kx} 1)`, 'vector-effect': 'non-scaling-stroke' }));
+  // The map box is 16:9 and the view is fitted inside it, so size pins against the width actually shown.
+  const shownW = Math.max(vw, vh * 16 / 9);
+  const r = shownW / 150, font = shownW / 42, near = shownW / 22;
+  // World view: one pin per region (tap to zoom in). Regional views: one pin per university, merging any that would overlap.
+  const groups = [];
+  if (region === 'all') {
+    for (const [k] of UNI_REGIONS.slice(1)) {
+      const items = UNIS.filter((u) => u.region === k);
+      if (items.length) groups.push({ x: items.reduce((a, u) => a + X(u.lon), 0) / items.length, y: items.reduce((a, u) => a + Y(u.lat), 0) / items.length, items, zoom: k });
+    }
+  } else {
+    for (const u of unis) {
+      const x = X(u.lon), y = Y(u.lat);
+      const g = groups.find((k) => Math.hypot(k.x - x, k.y - y) < near);
+      if (g) { g.items.push(u); g.x = (g.x * (g.items.length - 1) + x) / g.items.length; g.y = (g.y * (g.items.length - 1) + y) / g.items.length; }
+      else groups.push({ x, y, items: [u] });
+    }
+  }
+  const placed = []; // label boxes already drawn, so labels never sit on top of each other
+  for (const g of groups) {
+    const one = g.items.length === 1 && !g.zoom;
+    const text = g.zoom ? `${UNI_REGIONS.find((rr) => rr[0] === g.zoom)[2]} · ${g.items.length}` : one ? g.items[0].short : g.items.map((u) => u.short).join(' · ');
+    const flip = g.x > x0 + shownW * 0.72 - (shownW - vw) / 2; // near the right edge: put the label on the left
+    const tw = text.length * font * 0.56;
+    let ty = g.y + font * 0.35;
+    const box = () => { const lx = flip ? g.x - r * 2 - tw : g.x + r * 2; return [lx, ty - font, lx + tw, ty + font * 0.25]; };
+    const hits = (b) => placed.some((p) => b[0] < p[2] && b[2] > p[0] && b[1] < p[3] && b[3] > p[1]);
+    for (let i = 0; i < 6 && hits(box()); i++) ty += font * 1.25;
+    placed.push(box());
+    const dot = svgEl('g', { class: `pin${one ? '' : ' many'}`, tabindex: 0, role: 'button', 'aria-label': g.zoom ? `Zoom to ${text}` : text },
+      ty - font * 0.35 !== g.y ? svgEl('line', { class: 'leader', x1: g.x, y1: g.y, x2: g.x + (flip ? -1 : 1) * r * 1.6, y2: ty - font * 0.35, 'stroke-width': r * 0.3 }) : null,
+      svgEl('circle', { cx: g.x, cy: g.y, r: one ? r : r * 1.5, 'stroke-width': r * 0.35 }),
+      svgEl('text', { x: g.x + (flip ? -1 : 1) * r * 2, y: ty, 'font-size': font, 'text-anchor': flip ? 'end' : 'start', 'stroke-width': font * 0.16 }, text));
+    const go = () => onPick(g.items, g.zoom || null);
+    dot.addEventListener('click', go);
+    dot.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } });
+    svg.append(dot);
+  }
+  return svg;
+}
+
+function uniSection(c, now, psle) {
+  const sec = h('section', { class: 'card unis', id: 'universities' });
+  const parked = now === 'psle' && !state.unisOpen;
+  const age = c.dob ? Math.floor((Date.now() - parseDay(c.dob)) / (365.25 * 864e5)) : null;
+  const draw = () => {
+    if (parked && !state.unisOpen) {
+      sec.replaceChildren(
+        h('div', { class: 'unis-head' }, h('span', { class: 'st-ic' }, '🌍'), h('div', null, h('h2', null, 'Universities'),
+          h('div', { class: 'small muted' }, `Parked until secondary school${psle ? ` (≈ ${psle + 1})` : ''}`))),
+        h('p', null, 'At this age the best preparation for any university is breadth and enjoyment. A target university this early tends to narrow what a child is allowed to love — so we keep this out of sight until she leaves primary school.'),
+        h('p', { class: 'small muted' }, 'She never sees this page; it lives only in your Goals tab.'),
+        h('button', { class: 'btn', onclick: () => { state.unisOpen = true; draw(); } }, 'Look anyway'));
+      return;
+    }
+    const region = state.uniRegion || 'all';
+    const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Region' }, UNI_REGIONS.map(([k, flag, label]) =>
+      h('button', { class: 'chip', 'aria-pressed': String(region === k), onclick: () => { state.uniRegion = k; draw(); } }, `${flag} ${label}`)));
+    const list = h('div', { class: 'list uni-list' });
+    const shown = region === 'all' ? UNIS : UNIS.filter((u) => u.region === region);
+    const card = (u) => {
+      const flag = UNI_REGIONS.find((rr) => rr[0] === u.region)[1];
+      return h('article', { class: 'card uni', id: `uni-${u.key}` },
+        h('div', { class: 'uni-top' }, h('span', { class: 'uni-flag' }, flag), h('div', { class: 'main' }, h('h3', null, u.name), h('div', { class: 'small muted' }, u.city))),
+        h('dl', null,
+          h('dt', null, '📝 How they admit'), h('dd', null, u.how),
+          h('dt', null, '🧪 Tests & interviews'), h('dd', null, u.tests),
+          h('dt', null, '⭐ What they look for'), h('dd', null, u.weighs)),
+        h('div', { class: 'row uni-acts' },
+          h('a', { class: 'btn small', href: u.url, target: '_blank', rel: 'noopener noreferrer' }, 'Official admissions ↗'),
+          h('a', { class: 'btn small ghost', href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(u.name)}`, target: '_blank', rel: 'noopener noreferrer' }, 'Map ↗'),
+          h('button', { class: 'btn small ghost', onclick: () => goalForm(c, 'university', null, { title: `Apply to ${u.short}`, target: u.weighs, status: 'idea' }) }, '🎯 Make it a goal')));
+    };
+    if (region === 'all') {
+      for (const [k, flag, label] of UNI_REGIONS.slice(1)) {
+        list.append(h('div', { class: 'month' }, `${flag} ${label}`), ...UNIS.filter((u) => u.region === k).map(card));
+      }
+    } else list.append(...shown.map(card));
+
+    const map = uniMap(region, (items, zoomTo) => {
+      if (zoomTo) { state.uniRegion = zoomTo; draw(); return; }
+      const el = document.getElementById(`uni-${items[0].key}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el?.classList.add('flash'); setTimeout(() => el?.classList.remove('flash'), 1400);
+    });
+    const ageNow = age == null ? null : age <= 12 ? 0 : age <= 16 ? 1 : 2;
+    sec.replaceChildren(
+      h('div', { class: 'unis-head' }, h('span', { class: 'st-ic' }, '🌍'), h('div', null, h('h2', null, 'Universities'),
+        h('div', { class: 'small muted' }, 'Major universities and how they admit — checked October 2026.'))),
+      chips,
+      h('div', { class: 'map-wrap' }, map, h('div', { class: 'small muted map-hint' }, region === 'all' ? 'Tap a group to zoom in, or a name to jump to it.' : 'Tap a name to jump to it.')),
+      h('h3', null, 'What matters at each age'),
+      h('div', { class: 'age-guide' }, AGE_GUIDE.map(([ages, stage, text], i) =>
+        h('div', { class: `age-row${i === ageNow ? ' now' : ''}` }, h('div', { class: 'age-k' }, h('b', null, ages), h('span', null, stage)), h('p', null, text)))),
+      list,
+      h('p', { class: 'small muted' }, 'Rules change almost every year — each card links to the official page, which always wins. ',
+        now === 'psle' ? h('button', { class: 'link', onclick: () => { state.unisOpen = false; draw(); } }, 'Park this again') : null));
+  };
+  draw();
+  return sec;
+}
+
+function goalForm(c, stage, g, prefill = {}) {
   const editing = !!g;
   const ideas = h('datalist', { id: 'goal-ideas' }, (GOAL_IDEAS[stage] || []).map((t) => h('option', { value: t })));
   openForm({
     title: editing ? 'Edit goal' : `New goal — ${(PATHWAY.find((s) => s.key === stage) || {}).title || ''}`,
     submitLabel: editing ? 'Save' : 'Add goal',
-    values: g || { stage, status: 'working' },
+    values: g || { stage, status: 'working', ...prefill },
     fields: [
       { name: 'title', label: 'Goal', required: true, max: 160, list: 'goal-ideas', hint: 'Start typing for ideas, or write your own.' },
       { name: 'target', label: 'What “done” looks like', max: 200, hint: 'e.g. A zonal robotics award by Primary 5 · AL3 or better in every subject' },

@@ -438,3 +438,42 @@ details.stage > summary h2 { font-size: 1.15rem; }
 .sources a { color: var(--muted); }
 .empty.small { padding: 14px; font-size: .9rem; }
 .b-goals { margin-bottom: 8px; }
+
+/* ---------- Universities ---------- */
+.unis { margin: 18px 0; display: grid; gap: 10px; }
+.unis-head { display: flex; align-items: center; gap: 12px; }
+.unis-head h2 { font-size: 1.15rem; }
+.map-wrap { display: grid; gap: 4px; }
+.uni-map { width: 100%; aspect-ratio: 16 / 9; display: block; border-radius: 14px; border: 1px solid var(--line); background: #dceaf2; }
+.uni-map .sea { fill: #dceaf2; }
+.uni-map .land { fill: #f3efe2; stroke: #c9c0a6; stroke-width: .6; }
+.uni-map .pin { cursor: pointer; }
+.uni-map .pin circle { fill: #c2410c; stroke: #fff; }
+.uni-map .pin .leader { stroke: #1f1d16; opacity: .5; }
+.uni-map .pin.many circle { fill: var(--leaf); }
+.uni-map .pin text { fill: #1f1d16; font-family: var(--sans); font-weight: 700; paint-order: stroke; stroke: #ffffffcc; stroke-linejoin: round; }
+.uni-map .pin:focus { outline: none; }
+.uni-map .pin:focus circle, .uni-map .pin:hover circle { stroke: #1f1d16; }
+@media (prefers-color-scheme: dark) {
+  .uni-map, .uni-map .sea { background: #1b2a33; fill: #1b2a33; }
+  .uni-map .land { fill: #2c3324; stroke: #46503a; }
+  .uni-map .pin text { fill: #f2efe4; stroke: #000000aa; }
+}
+.map-hint { text-align: center; }
+.age-guide { display: grid; gap: 6px; }
+.age-row { display: grid; grid-template-columns: 74px 1fr; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; }
+.age-row.now { border-color: var(--leaf); background: var(--leaf-soft); }
+.age-k { display: grid; align-content: start; }
+.age-k b { font-size: 1.05rem; }
+.age-k span { font-size: .75rem; color: var(--muted); }
+.age-row p { margin: 0; font-size: .9rem; }
+.uni { display: grid; gap: 6px; transition: box-shadow .3s; }
+.uni.flash { box-shadow: 0 0 0 3px var(--amber); }
+.uni-top { display: flex; gap: 10px; align-items: center; }
+.uni-top h3 { font-size: 1.02rem; }
+.uni-flag { font-size: 1.5rem; }
+.uni dl { margin: 0; display: grid; gap: 2px; }
+.uni dt { font-size: .78rem; font-weight: 700; color: var(--muted); margin-top: 4px; }
+.uni dd { margin: 0; font-size: .9rem; }
+.uni-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.uni-acts a.btn { text-decoration: none; }

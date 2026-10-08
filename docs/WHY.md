@@ -79,3 +79,13 @@ What that means Ankur needed, and now has:
 What we deliberately **didn't** do: import all 27 Common App categories (most — Junior ROTC, religious clubs, paid work — don't apply to a 7-year-old and would just clutter the app), or build an hours-tracker (the research is consistent that depth and impact matter more than hours logged).
 
 This doesn't make Ankur an admissions product — it's still a family record. It just means the record being built now won't need to be reconstructed from memory in ten years.
+
+## Universities — and why they're parked until secondary school
+
+The Goals tab includes a university explorer: a map of major universities in Singapore, the UK, Europe and the US, with how each one admits and a link to its official page. It is deliberately **parked while she's in primary school**:
+
+- At 7–12 the best preparation for any university is breadth and enjoyment. A target university this early tends to narrow what a child is allowed to love — and the pressure usually starts on the parent's side, quietly, through which classes get kept and which get dropped.
+- So before secondary school the section shows a short note instead of the map. A parent can still tap **Look anyway**; it parks itself again next time.
+- **She never sees any of it.** Goals and universities live only in the parent's Goals tab; her kid login shows her journey and Buddy, nothing about targets.
+
+Admission rules change almost every year (several US universities brought test requirements back in 2024–26), so each card says what was checked in October 2026 and links to the official page, which always wins. The map is drawn from public-domain Natural Earth data built into the app — no outside map service sees anything.

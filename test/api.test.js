@@ -400,3 +400,20 @@ test('pathway goals: parents plan per stage, others are kept out, PSLE year is o
   assert.equal((await call('PUT', '/api/children/1', { cookie: parentCookie, body: { psle_year: '1800' } })).status, 400, 'nonsense year rejected');
   assert.equal((await call('DELETE', `/api/goals/${made.json.id}`, { cookie: parentCookie })).status, 200);
 });
+
+test('university list is well-formed: known region, official https link, real coordinates, all fields', () => {
+  const { UNIS, UNI_REGIONS, AGE_GUIDE } = require('../public/catalog');
+  const regions = new Set(UNI_REGIONS.map(([k]) => k));
+  const keys = new Set();
+  for (const u of UNIS) {
+    assert.ok(!keys.has(u.key), `${u.key} unique`); keys.add(u.key);
+    assert.ok(regions.has(u.region) && u.region !== 'all', `${u.key} region`);
+    assert.match(u.url, /^https:\/\//, `${u.key} url`);
+    assert.ok(Math.abs(u.lat) <= 90 && Math.abs(u.lon) <= 180, `${u.key} coordinates`);
+    const [, , , [w, s, e, n]] = UNI_REGIONS.find(([k]) => k === u.region);
+    assert.ok(u.lon >= w && u.lon <= e && u.lat >= s && u.lat <= n, `${u.key} sits inside its region's map`);
+    for (const f of ['name', 'short', 'city', 'how', 'tests', 'weighs']) assert.ok(u[f], `${u.key}.${f}`);
+  }
+  assert.equal(AGE_GUIDE.length, 3);
+  assert.ok(fs.readFileSync(path.join(__dirname, '..', 'public', 'worldmap.js'), 'utf8').includes('window.ANKUR_WORLD = "M'), 'map outline present');
+});

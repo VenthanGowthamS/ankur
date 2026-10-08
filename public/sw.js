@@ -1,6 +1,6 @@
 // Minimal offline shell. Never caches API responses or media — those are private.
-const CACHE = 'ankur-shell-v3';
-const SHELL = ['/', '/style.css', '/catalog.js', '/app.js', '/icon.svg', '/manifest.webmanifest'];
+const CACHE = 'ankur-shell-v4';
+const SHELL = ['/', '/style.css', '/catalog.js', '/worldmap.js', '/app.js', '/icon.svg', '/manifest.webmanifest'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
