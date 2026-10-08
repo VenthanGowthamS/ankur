@@ -1,0 +1,21 @@
+{
+  "name": "ankur",
+  "version": "0.1.0",
+  "description": "Ankur — a private growth portfolio and parent dashboard for children.",
+  "private": true,
+  "license": "UNLICENSED",
+  "main": "server.js",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "express": "^5.2.1",
+    "multer": "^2.4.0"
+  }
+}
