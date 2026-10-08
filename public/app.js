@@ -9,7 +9,7 @@ const CATS = {
 const EVENT_KINDS = [['contest', 'Contest'], ['exam', 'Exam'], ['performance', 'Performance'], ['school', 'School'], ['other', 'Other']];
 const catOptions = () => Object.entries(CATS).map(([v, [e, l]]) => [v, `${e} ${l}`]);
 
-const state = { user: null, children: [], childId: null, view: 'portfolio', filter: 'all', buddy: null };
+const state = { user: null, children: [], childId: null, view: 'portfolio', filter: 'all', buddy: null, previewKid: false };
 
 /* ---------- tiny helpers ---------- */
 function h(tag, props, ...kids) {
@@ -65,8 +65,8 @@ function toast(msg) {
   document.body.append(t);
   setTimeout(() => t.remove(), 3200);
 }
-const isParent = () => state.user && state.user.role === 'parent';
-const isKid = () => state.user && state.user.role === 'child';
+const isParent = () => !!state.user && state.user.role === 'parent' && !state.previewKid;
+const isKid = () => !!state.user && (state.user.role === 'child' || state.previewKid === true);
 const child = () => state.children.find((c) => c.id === state.childId) || state.children[0];
 
 const parseDay = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -168,30 +168,58 @@ async function boot() {
 }
 
 function renderAuth(setup) {
-  const err = h('div', { class: 'error', role: 'alert' });
-  const field = (label, name, type = 'text', extra = {}) => h('label', { class: 'field' }, label, h('input', { name, type, required: true, ...extra }));
-  const form = h('form', {
-    class: 'fields',
-    onsubmit: async (e) => {
-      e.preventDefault();
-      err.textContent = '';
-      const d = Object.fromEntries(new FormData(form));
-      try { await api('POST', setup ? '/api/setup' : '/api/login', d); state.view = 'portfolio'; state.filter = 'all'; await boot(); }
-      catch (ex) { err.textContent = ex.message; }
+  let kid = false;
+  if (!setup) { try { kid = localStorage.getItem('ankur_login_kid') === '1'; } catch { /* private mode: fine */ } }
+
+  const draw = () => {
+    const err = h('div', { class: 'error', role: 'alert' });
+    const field = (label, name, type = 'text', extra = {}) => h('label', { class: 'field' }, label, h('input', { name, type, required: true, ...extra }));
+    const secret = kid ? field('Your secret word', 'password', 'password', { autocomplete: 'current-password' }) : null;
+    const form = h('form', {
+      class: 'fields',
+      onsubmit: async (e) => {
+        e.preventDefault();
+        err.textContent = '';
+        const d = Object.fromEntries(new FormData(form));
+        try {
+          await api('POST', setup ? '/api/setup' : '/api/login', d);
+          state.view = 'portfolio'; state.filter = 'all'; state.previewKid = false;
+          await boot();
+        } catch (ex) {
+          err.textContent = kid && /wrong|password/i.test(ex.message) ? 'Oops! That name or secret word doesn’t match. Try again 🙂' : ex.message;
+        }
+      },
     },
-  },
-  setup && field('Your name', 'name', 'text', { autocomplete: 'name' }),
-  setup ? field('Email', 'email', 'email', { autocomplete: 'username' }) : field('Email or username', 'email', 'text', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' }),
-  field(setup ? 'Choose a password (8+ characters)' : 'Password', 'password', 'password', { autocomplete: setup ? 'new-password' : 'current-password', minlength: setup ? 8 : 1 }),
-  setup && field('Child’s name', 'childName'),
-  setup && h('label', { class: 'field' }, 'Child’s date of birth (optional)', h('input', { name: 'childDob', type: 'date' })),
-  err,
-  h('button', { class: 'btn primary', type: 'submit' }, setup ? 'Create our Ankur' : 'Sign in'));
-  const logo = sproutSvg('logo');
-  root().replaceChildren(h('main', { class: 'auth' }, h('div', { class: 'card' },
-    logo, h('h1', null, 'Ankur'),
-    h('p', { class: 'tag' }, setup ? 'First time here — set up the parent account.' : 'A private place where our children’s journey grows.'),
-    form)));
+    setup && field('Your name', 'name', 'text', { autocomplete: 'name' }),
+    kid
+      ? field('Your name', 'email', 'text', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', placeholder: 'the name your parents gave you here' })
+      : setup ? field('Email', 'email', 'email', { autocomplete: 'username' }) : field('Email or username', 'email', 'text', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' }),
+    kid ? secret : field(setup ? 'Choose a password (8+ characters)' : 'Password', 'password', 'password', { autocomplete: setup ? 'new-password' : 'current-password', minlength: setup ? 8 : 1 }),
+    kid && h('label', { class: 'field check' }, h('input', { type: 'checkbox', onchange: (e) => { form.elements.password.type = e.target.checked ? 'text' : 'password'; } }), 'Show my secret word'),
+    setup && field('Child’s name', 'childName'),
+    setup && h('label', { class: 'field' }, 'Child’s date of birth (optional)', h('input', { name: 'childDob', type: 'date' })),
+    err,
+    h('button', { class: `btn primary${kid ? ' big' : ''}`, type: 'submit' }, setup ? 'Create our Ankur' : kid ? 'Let’s go! 🚀' : 'Sign in'));
+
+    const setMode = (v) => {
+      kid = v;
+      try { localStorage.setItem('ankur_login_kid', v ? '1' : '0'); } catch { /* ignore */ }
+      draw();
+    };
+    const modeSwitch = !setup && h('div', { class: 'seg', role: 'group', 'aria-label': 'Who is signing in?' },
+      h('button', { type: 'button', class: 'seg-btn', 'aria-pressed': String(!kid), onclick: () => setMode(false) }, '🧑 Grown-up'),
+      h('button', { type: 'button', class: 'seg-btn', 'aria-pressed': String(kid), onclick: () => setMode(true) }, '🧒 I’m a kid'));
+
+    root().replaceChildren(h('main', { class: `auth${kid ? ' kid-login' : ''}` }, h('div', { class: 'card' },
+      modeSwitch,
+      kid ? buddyFace('logo kid-logo') : sproutSvg('logo'),
+      h('h1', null, kid ? 'Hi there! 👋' : 'Ankur'),
+      h('p', { class: 'tag' }, setup ? 'First time here — set up the parent account.'
+        : kid ? 'Type your name and your secret word to see your journey.' : 'A private place where our children’s journey grows.'),
+      form)));
+    form.querySelector('input')?.focus();
+  };
+  draw();
 }
 
 /* ---------- shell ---------- */
@@ -205,9 +233,12 @@ function renderShell() {
   const switcher = kids.length > 1 && h('label', { class: 'child-switch' }, h('span', { class: 'sr' }, 'Child'),
     h('select', { onchange: (e) => { state.childId = Number(e.target.value); renderShell(); } },
       kids.map((c) => h('option', { value: c.id, selected: c.id === state.childId }, c.nickname || c.name))));
-  const bye = isKid() && h('button', { class: 'btn small', onclick: async () => { await api('POST', '/api/logout'); state.user = null; state.buddy = null; boot(); } }, 'Bye 👋');
+  const bye = isKid() && h('button', { class: 'btn small', onclick: async () => {
+    if (state.previewKid) { state.previewKid = false; state.view = 'settings'; return renderShell(); }
+    await api('POST', '/api/logout'); state.user = null; state.buddy = null; boot();
+  } }, state.previewKid ? '← Back to parent view' : 'Bye 👋');
   root().replaceChildren(h('div', { class: `shell${isKid() ? ' kid' : ''}` },
-    h('header', { class: 'topbar' }, h('div', { class: 'brand' }, sproutSvg(), 'Ankur'), h('div', { class: 'spacer' }), switcher, bye),
+    h('header', { class: 'topbar' }, h('div', { class: 'brand' }, isKid() ? buddyFace() : sproutSvg(), 'Ankur'), h('div', { class: 'spacer' }), switcher, bye),
     tabs.length ? nav : null, main));
   if (isKid() && child()) mountBuddy(child());
   const views = { portfolio: viewPortfolio, dashboard: viewDashboard, settings: viewSettings };
@@ -463,14 +494,18 @@ async function viewSettings(main) {
       h('div', { class: 'section-head' }, h('h2', null, `${c.nickname || c.name}’s profile`),
         h('button', { class: 'btn small', onclick: () => childForm(c) }, 'Edit')),
       h('div', { class: 'card' }, h('strong', null, c.name), h('div', { class: 'muted small' }, [c.dob && `Born ${fmtDate(c.dob)} (${ageText(c.dob)})`, c.bio].filter(Boolean).join(' · ') || 'Add a birthday and a short bio.')),
-      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => childForm(null) }, '＋ Add another child')));
+      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => childForm(null) }, '＋ Add another child')),
+      h('div', { class: 'card item' },
+        h('div', { class: 'main' }, h('div', { class: 'title' }, `See what ${c.nickname || c.name} sees`),
+          h('div', { class: 'small muted' }, 'Preview the kid view with Buddy. Nothing changes.')),
+        h('button', { class: 'btn', onclick: () => { state.previewKid = true; state.view = 'portfolio'; renderShell(); } }, '👀 Preview kid view')));
 
     const users = await api('GET', '/api/users');
     parts.push(
       h('div', { class: 'section-head' }, h('h2', null, 'Who can sign in'), h('button', { class: 'btn small', onclick: () => userForm() }, '＋ Invite')),
       h('p', { class: 'muted small' }, 'Family members can view the portfolio only. Parents can add and edit everything. Share the password yourself — nothing is ever public.'),
       h('div', { class: 'list' }, users.map((u) => h('div', { class: 'card item' },
-        h('div', { class: 'main' }, h('div', { class: 'title' }, u.name, u.id === state.user.id && ' (you)'), h('div', { class: 'small muted' }, `${u.email} · ${u.role}`)),
+        h('div', { class: 'main' }, h('div', { class: 'title' }, u.name, u.id === state.user.id && ' (you)'), h('div', { class: 'small muted' }, u.role === 'child' ? `username “${u.email}” · kid login — tap “I’m a kid” on the sign-in page` : `${u.email} · ${u.role}`)),
         u.id !== state.user.id && h('button', { class: 'btn small danger', onclick: async () => {
           if (await confirmBox(`Remove ${u.name}’s access?`, 'Remove')) { await api('DELETE', `/api/users/${u.id}`); refresh(); }
         } }, 'Remove')))));
@@ -514,7 +549,8 @@ function userForm() {
     ],
     onSubmit: async ({ values }) => {
       if (values.role === 'child') values.childId = state.childId;
-      await api('POST', '/api/users', values); toast('Account created — share the password with them'); refresh();
+      await api('POST', '/api/users', values);
+      toast(values.role === 'child' ? `Done! On the sign-in page, ${values.name} taps “I’m a kid”.` : 'Account created — share the password with them'); refresh();
     },
   });
 }
@@ -533,9 +569,10 @@ function passwordForm() {
 /* ---------- Buddy: Ankur the sprout, for kid logins only ----------
    Deliberately scripted: it only reads facts from /buddy and never takes free text,
    so a child can't type anything to it and it can't say anything unexpected. */
-function buddyFace() {
+function buddyFace(cls) {
   const s = document.createElementNS(SVG_NS, 'svg');
   s.setAttribute('viewBox', '0 0 100 100'); s.setAttribute('aria-hidden', 'true');
+  if (cls) s.setAttribute('class', cls);
   const add = (tag, attrs) => { const e = document.createElementNS(SVG_NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); s.append(e); };
   add('path', { d: 'M50 30 C50 14 38 8 26 10 C26 24 34 32 50 30z', fill: '#4f7f3a' });
   add('path', { d: 'M50 30 C50 12 64 6 76 9 C77 24 66 33 50 30z', fill: '#e8a33d' });

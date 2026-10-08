@@ -1,7 +1,7 @@
 {
   "name": "ankur",
   "version": "0.1.0",
-  "description": "Ankur — a private growth portfolio and parent dashboard for children.",
+  "description": "Ankur \u2014 a private growth portfolio and parent dashboard for children.",
   "private": true,
   "license": "UNLICENSED",
   "main": "server.js",
@@ -11,7 +11,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "seed": "node scripts/seed-demo.js",
+    "seed:reset": "node scripts/seed-demo.js --reset"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

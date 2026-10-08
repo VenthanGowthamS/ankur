@@ -187,3 +187,28 @@ test('kid accounts: own profile only, read-only, Buddy facts, no parent areas', 
   assert.ok(buddy.json.total >= 1);
   assert.equal(buddy.json.lastPassed.level, 'Pre A1 Starters');
 });
+
+test('demo seed loads a usable family and refuses to overwrite real data', async () => {
+  const { seedDemo, CREDENTIALS } = require('../scripts/seed-demo');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ankur-seed-'));
+  try {
+    seedDemo(dir);
+    const app = createApp({ dataDir: dir });
+    const srv = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
+    const url = `http://127.0.0.1:${srv.address().port}`;
+    const login = async (email, password) => {
+      const r = await fetch(url + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }) });
+      return { status: r.status, cookie: (r.headers.get('set-cookie') || '').split(';')[0] };
+    };
+    const kid = await login(CREDENTIALS.kid.username, CREDENTIALS.kid.password);
+    assert.equal(kid.status, 200);
+    const entries = await (await fetch(url + '/api/children/1/entries', { headers: { cookie: kid.cookie } })).json();
+    assert.ok(entries.length >= 6 && entries.some((e) => e.media.length), 'demo entries with pictures');
+    const parent = await login(CREDENTIALS.parent.email, CREDENTIALS.parent.password);
+    const sum = await (await fetch(url + '/api/children/1/summary', { headers: { cookie: parent.cookie } })).json();
+    assert.equal(sum.examsPassed, 1);
+    assert.equal(sum.upcomingEvents, 2);
+    srv.close();
+    assert.throws(() => seedDemo(dir), /already has accounts/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

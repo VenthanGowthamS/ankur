@@ -23,6 +23,23 @@ A private growth portfolio and parent dashboard for our children — art, speech
 
 Capture, not generation: AI can make a PDF in a minute, but only from what was saved at the time. Read [docs/WHY.md](docs/WHY.md) for the problem, why it is deliberately *not* blockchain, honest weaknesses, and how we'll test whether it's worth keeping.
 
+## Try it with demo data
+
+```bash
+npm install
+npm run seed        # loads a fictional family (add --reset via `npm run seed:reset` to wipe data/ first)
+npm start           # then open http://localhost:3000
+```
+
+| Who | Sign in with | What they see |
+| --- | --- | --- |
+| Parent | `parent@example.com` / `ankur-demo-1` | Everything, can edit |
+| Family | `grandma@example.com` / `grandma-pass1` | Portfolio, view only |
+| **Kid** | tap **🧒 I’m a kid**, then `mira` / `sprout1` | Her own journey, view only, with Buddy |
+
+Parents can also see the kid view without signing out: **Family → 👀 Preview kid view**.
+The demo family is fictional — real use starts from a fresh app, where the first screen sets up your own account.
+
 ## Run it
 
 Requires **Node 22.13+** (uses the built-in `node:sqlite`, so no native build step).

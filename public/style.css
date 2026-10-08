@@ -249,3 +249,18 @@ label.field { display: grid; gap: 4px; font-size: .88rem; color: var(--muted); }
 .bubble-pic img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 14px; display: block; }
 .buddy-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 @media (prefers-reduced-motion: reduce) { .buddy-btn, .buddy-hint { animation: none; } }
+
+/* ---------- sign-in: grown-up / kid switch ---------- */
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--leaf-soft); border-radius: 999px; margin-bottom: 18px; }
+.seg-btn { border: 0; background: none; border-radius: 999px; padding: 8px 6px; cursor: pointer; font-size: .95rem; color: var(--muted); }
+.seg-btn[aria-pressed="true"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: var(--shadow); }
+.auth.kid-login { background: linear-gradient(160deg, var(--amber-soft), var(--leaf-soft)); }
+.auth .kid-logo { width: 96px; height: 96px; animation: bob 3.2s ease-in-out infinite; }
+.auth.kid-login .card { border-radius: 28px; }
+.auth.kid-login .field { font-size: 1rem; }
+.auth.kid-login .field input { font-size: 1.2rem; padding: 14px; border-radius: 16px; }
+.btn.big { font-size: 1.25rem; padding: 14px 20px; justify-content: center; border-radius: 20px; }
+.brand svg { flex: none; }
+@media (prefers-reduced-motion: reduce) { .auth .kid-logo { animation: none; } }
+.card + .row { margin-top: 10px; }
+.row + .card { margin-top: 10px; }
