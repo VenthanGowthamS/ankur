@@ -196,7 +196,7 @@ function renderAuth(needsSetup) {
     setup && field('Your name', 'name', 'text', { autocomplete: 'name' }),
     kid
       ? field('Your name', 'email', 'text', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', placeholder: 'the name your parents gave you here' })
-      : setup ? field('Email', 'email', 'email', { autocomplete: 'username' }) : field('Email or username', 'email', 'text', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' }),
+      : field('Email or username', 'email', 'text', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' }),
     kid ? field('Your secret word', 'password', 'password', { autocomplete: 'current-password' })
       : field(setup ? 'Choose a password (8+ characters)' : 'Password', 'password', 'password', { autocomplete: setup ? 'new-password' : 'current-password', minlength: setup ? 8 : 1 }),
     kid && h('label', { class: 'field check' }, h('input', { type: 'checkbox', onchange: (e) => { form.elements.password.type = e.target.checked ? 'text' : 'password'; } }), 'Show my secret word'),

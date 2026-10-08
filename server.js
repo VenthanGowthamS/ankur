@@ -8,7 +8,7 @@ const bcrypt = require('bcryptjs');
 const { openDb, seedLadder, tx } = require('./db');
 
 const CATEGORIES = ['art', 'speech', 'exam', 'hindi', 'accolade', 'school', 'other'];
-const SESSION_DAYS = 30;
+const SESSION_DAYS = 90; // sliding: every visit renews it, so regular use never signs you out
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const MIME_EXT = {
@@ -154,15 +154,14 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
   app.use(express.json({ limit: '200kb' }));
 
   // ---- sessions
+  const sessionCookie = (token, maxAge) =>
+    `ankur_sid=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${cookieSecure ? '; Secure' : ''}`;
   function startSession(res, userId) {
     const token = crypto.randomBytes(32).toString('base64url');
     const maxAge = SESSION_DAYS * 86400;
     db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
       .run(sha256(token), userId, Date.now() + maxAge * 1000);
-    res.setHeader(
-      'Set-Cookie',
-      `ankur_sid=${token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge}${cookieSecure ? '; Secure' : ''}`
-    );
+    res.setHeader('Set-Cookie', sessionCookie(token, maxAge));
   }
   function endSession(req, res) {
     const token = getCookie(req, 'ankur_sid');
@@ -174,10 +173,18 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     req.user = null;
     if (token) {
       const row = db.prepare(
-        `SELECT u.id, u.name, u.email, u.role, u.child_id FROM sessions s JOIN users u ON u.id = s.user_id
+        `SELECT u.id, u.name, u.email, u.role, u.child_id, s.expires_at FROM sessions s JOIN users u ON u.id = s.user_id
          WHERE s.token_hash = ? AND s.expires_at > ?`
       ).get(sha256(token), Date.now());
-      if (row) req.user = { ...row };
+      if (row) {
+        const { expires_at: expiresAt, ...user } = row;
+        req.user = user;
+        // Sliding session: renew once a day of use, so you stay signed in as long as you keep coming back.
+        if (expiresAt - Date.now() < (SESSION_DAYS - 1) * 864e5) {
+          db.prepare('UPDATE sessions SET expires_at = ? WHERE token_hash = ?').run(Date.now() + SESSION_DAYS * 864e5, sha256(token));
+          res.setHeader('Set-Cookie', sessionCookie(token, SESSION_DAYS * 86400));
+        }
+      }
     }
     next();
   });
@@ -203,7 +210,8 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     name = String(name || '').trim();
     email = cleanEmail(email);
     if (!name || name.length > 80) throw new HttpError(400, 'Name is required');
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new HttpError(400, 'Enter a valid email');
+    // The sign-in name can be an email or a simple username (letters, numbers, . _ -).
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) && !/^[a-z0-9._-]{3,40}$/.test(email)) throw new HttpError(400, 'Use an email, or a simple username (3+ letters or numbers, no spaces)');
     if (typeof password !== 'string' || password.length < 8) throw new HttpError(400, 'Password must be at least 8 characters');
     return { name, email };
   }

@@ -212,3 +212,30 @@ test('demo seed loads a usable family and refuses to overwrite real data', async
     assert.throws(() => seedDemo(dir), /already has accounts/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('grown-ups can use a simple username, and sessions renew while in use', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ankur-user-'));
+  let srv;
+  try {
+    const app = createApp({ dataDir: dir });
+    srv = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
+    const url = `http://127.0.0.1:${srv.address().port}`;
+    const post = (p, body, cookie) => fetch(url + p, { method: 'POST', headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: JSON.stringify(body) });
+    const bad = await post('/api/setup', { name: 'Test', email: 'a b', password: 'Test@123', childName: 'Mira' });
+    assert.equal(bad.status, 400);
+    const ok = await post('/api/setup', { name: 'Test', email: 'Test', password: 'Test@123', childName: 'Mira' });
+    assert.equal(ok.status, 201);
+    const login = await post('/api/login', { email: 'test', password: 'Test@123' });
+    assert.equal(login.status, 200, 'username is case-insensitive');
+    const cookie = (login.headers.get('set-cookie') || '').split(';')[0];
+    assert.match(login.headers.get('set-cookie'), /Max-Age=7776000/, '90-day session');
+
+    // pretend 40 days passed: a visit should push the expiry back out and reissue the cookie
+    const db = app.locals.db;
+    db.prepare('UPDATE sessions SET expires_at = ?').run(Date.now() + 50 * 864e5);
+    const visit = await fetch(url + '/api/me', { headers: { cookie } });
+    assert.match(visit.headers.get('set-cookie') || '', /Max-Age=7776000/);
+    const left = db.prepare('SELECT MAX(expires_at) AS e FROM sessions').get().e - Date.now();
+    assert.ok(left > 89 * 864e5, 'session renewed to ~90 days');
+  } finally { srv?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
