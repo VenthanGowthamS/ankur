@@ -8,7 +8,9 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { openDb, seedLadder, tx } = require('../db');
 
-const IMAGES = path.join(__dirname, '..', 'demo', 'images');
+const DEMO = path.join(__dirname, '..', 'demo');
+const MIME = { '.png': 'image/png', '.wav': 'audio/wav', '.pdf': 'application/pdf' };
+const find = (f) => (['images', 'media'].map((d) => path.join(DEMO, d, f)).find((p) => fs.existsSync(p)));
 const CREDENTIALS = {
   parent: { email: 'parent@example.com', password: 'ankur-demo-1' },
   family: { email: 'grandma@example.com', password: 'grandma-pass1' },
@@ -46,20 +48,25 @@ function seedDemo(dataDir, { reset = false } = {}) {
     user('Mira', CREDENTIALS.kid.username, CREDENTIALS.kid.password, 'child', childId);
     user('Grandma', CREDENTIALS.family.email, CREDENTIALS.family.password, 'family');
 
-    const entry = (category, title, offset, notes, image) => {
+    const entry = (category, title, offset, notes, ...files) => {
       const id = Number(db.prepare('INSERT INTO entries (child_id, category, title, date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?)')
         .run(childId, category, title, day(offset), notes, parentId).lastInsertRowid);
-      if (image) {
-        const file = crypto.randomBytes(16).toString('hex') + '.png';
-        fs.copyFileSync(path.join(IMAGES, image), path.join(uploads, file));
+      for (const name of files) {
+        const ext = path.extname(name);
+        const file = crypto.randomBytes(16).toString('hex') + ext;
+        fs.copyFileSync(find(name), path.join(uploads, file));
         db.prepare('INSERT INTO media (entry_id, file, original, mime, size) VALUES (?, ?, ?, ?, ?)')
-          .run(id, file, image, 'image/png', fs.statSync(path.join(uploads, file)).size);
+          .run(id, file, name, MIME[ext], fs.statSync(path.join(uploads, file)).size);
       }
     };
+    entry('speech', 'Speech practice (sample sound)', -4, 'Tap play to hear a recording. Real ones can be voice notes from the phone.', 'speech-practice-sample.wav');
     entry('art', 'Rainbow after the rain', -10, 'Poster colours. She mixed the purple herself.', 'art_rainbow.png');
+    entry('school', 'Lantern making', -14, 'Made a paper lantern for the class festival. Helped a friend with hers.');
     entry('speech', 'Speech: My Favourite Festival', -18, 'Spoke for 2 minutes without notes. Eye contact was lovely.', 'speech_stage.png');
-    entry('exam', 'Cambridge Starters result', -26, 'Great score — full marks in listening.');
+    entry('exam', 'Cambridge Starters result', -26, 'Great score — full marks in listening. Certificate attached.', 'certificate-sample.pdf');
+    entry('hindi', 'Hindi alphabet chart', -33, 'Finished writing all the varnamala neatly.');
     entry('art', 'Flower garden', -39, 'Used a sponge for the petals.', 'art_flower.png');
+    entry('accolade', 'Kindness badge', -47, 'Class teacher’s pick for helping a new classmate settle in.');
     entry('art', 'Peacock watercolour', -55, 'Wet-on-wet technique, first time.', 'art_peacock.png');
     entry('hindi', 'Hindi poem recitation', -67, 'Recited without a single prompt. Teacher was delighted.');
     entry('accolade', 'Star of the week', -80, 'Awarded for kindness in class.');
@@ -68,6 +75,9 @@ function seedDemo(dataDir, { reset = false } = {}) {
       .run(childId, title, day(offset), kind, location);
     event('Inter-school colouring contest', 37, 'contest', 'Community centre');
     event('Cambridge Movers', 150, 'exam', null);
+    const past = db.prepare("INSERT INTO events (child_id, title, date, kind, location, status, result) VALUES (?, ?, ?, ?, ?, 'done', ?)");
+    past.run(childId, 'School talent show', -30, 'performance', 'School hall', 'Sang with the class choir');
+    past.run(childId, 'Hindi recitation contest', -62, 'contest', 'Community centre', '2nd place');
     const activity = (name, category, schedule, provider) => db.prepare('INSERT INTO activities (child_id, name, category, schedule, provider, active) VALUES (?, ?, ?, ?, ?, 1)')
       .run(childId, name, category, schedule, provider);
     activity('Hindi tuition', 'hindi', 'Saturdays 10am', 'Mrs Sharma');
