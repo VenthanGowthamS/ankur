@@ -3,8 +3,18 @@
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
 const CATS = {
-  art: ['🎨', 'Art'], speech: ['🎤', 'Speech'], exam: ['📜', 'Exams'], hindi: ['🪔', 'Hindi'],
+  art: ['🎨', 'Art'], speech: ['🎤', 'Speech'], exam: ['📜', 'Exams'], olympiad: ['🧮', 'Olympiads'], hindi: ['🪔', 'Hindi'],
+  martial: ['🥋', 'Martial arts'], sports: ['⚽', 'Sports'], skating: ['⛸️', 'Skating'],
   accolade: ['🏅', 'Accolades'], school: ['🏫', 'School'], other: ['✨', 'Other'],
+};
+const LEVELS = [['school', '🏫 School'], ['zonal', '📍 Zonal'], ['national', '🏆 National'], ['international', '🌍 International']];
+// Ready-made ladders (belts, olympiad rounds…). Editable after adding.
+const LADDERS = {
+  'Karate belts': ['White belt', 'Yellow belt', 'Orange belt', 'Green belt', 'Blue belt', 'Brown belt', 'Black belt'],
+  'Taekwondo belts': ['White belt', 'Yellow belt', 'Green belt', 'Blue belt', 'Red belt', 'Black belt'],
+  'Olympiad': ['School round', 'Zonal round', 'National round', 'International round'],
+  'Skating levels': ['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5'],
+  'Football': ['School team', 'Zonal team', 'National squad', 'International'],
 };
 const EVENT_KINDS = [['contest', 'Contest'], ['exam', 'Exam'], ['performance', 'Performance'], ['school', 'School'], ['other', 'Other']];
 const catOptions = () => Object.entries(CATS).map(([v, [e, l]]) => [v, `${e} ${l}`]);
@@ -313,7 +323,10 @@ function buildEntry(e, c, emoji, label) {
       h('div', { class: 'main' },
         h('span', { class: 'badge' }, `${emoji} ${label}`),
         h('h3', null, e.title),
-        h('div', { class: 'when' }, fmtDate(e.date))),
+        h('div', { class: 'when' }, fmtDate(e.date)),
+        (e.level || e.result) && h('div', { class: 'wins' },
+          e.result && h('span', { class: 'win result' }, `🏅 ${e.result}`),
+          e.level && h('span', { class: 'win level' }, (LEVELS.find((l) => l[0] === e.level) || [, e.level])[1]))),
       isParent() && h('button', { class: 'btn small ghost', 'aria-label': `Edit ${e.title}`, onclick: () => entryForm(c, e) }, 'Edit')),
     e.notes && h('p', { class: 'notes' }, e.notes),
     e.media.length > 0 && h('div', { class: 'media' }, e.media.map(mediaItem)));
@@ -357,17 +370,19 @@ function entryForm(c, entry) {
       { name: 'title', label: 'What happened?', required: true, max: 160 },
       { name: 'category', label: 'Area', type: 'select', options: catOptions() },
       { name: 'date', label: 'Date', type: 'date', required: true },
+      { name: 'level', label: 'Level of the event', type: 'select', options: [['', '— not a competition —'], ...LEVELS] },
+      { name: 'result', label: 'Result — medal, rank, belt, badge', max: 120, hint: 'e.g. Gold medal · Yellow belt · Runner-up' },
       { name: 'notes', label: 'Notes — scores, feedback, how it felt', type: 'textarea', max: 5000 },
       { name: 'files', label: editing ? 'Add more photos, recordings or PDFs' : 'Photos, recordings, videos or PDFs', type: 'files', hint: 'Up to 8 files, 80 MB each.' },
     ],
     extra: existing,
     onSubmit: async ({ values, files }) => {
       if (editing) {
-        await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes });
+        await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes, level: values.level, result: values.result });
         if (files.length) { const fd = new FormData(); files.forEach((f) => fd.append('files', f)); await api('POST', `/api/entries/${entry.id}/media`, fd); }
       } else {
         const fd = new FormData();
-        ['title', 'category', 'date', 'notes'].forEach((k) => fd.set(k, values[k]));
+        ['title', 'category', 'date', 'notes', 'level', 'result'].forEach((k) => fd.set(k, values[k]));
         files.forEach((f) => fd.append('files', f));
         await api('POST', `/api/children/${c.id}/entries`, fd);
       }
@@ -424,8 +439,8 @@ async function viewDashboard(main) {
       h('div', { class: 'lvl' }, s.level),
       h('div', { class: 'sc' }, [s.score, s.date && fmtDate(s.date)].filter(Boolean).join(' · ') || s.status)))));
 
-  const sec = (title, addLabel, onAdd, content) => [
-    h('div', { class: 'section-head' }, h('h2', null, title), h('button', { class: 'btn small', onclick: onAdd }, addLabel)), content];
+  const sec = (title, addLabel, onAdd, content, extra) => [
+    h('div', { class: 'section-head' }, h('h2', null, title), h('div', { class: 'row' }, extra, h('button', { class: 'btn small', onclick: onAdd }, addLabel))), content];
   const emptyBox = (t) => h('div', { class: 'empty' }, t);
 
   main.replaceChildren(
@@ -433,7 +448,21 @@ async function viewDashboard(main) {
     ...sec('Coming up', '＋ Event', () => eventForm(c), upcoming.length ? h('div', { class: 'list' }, upcoming.map(eventRow)) : emptyBox('No contests or exams planned. Add the next one.')),
     ...(past.length ? [h('div', { class: 'month' }, 'Recently done'), h('div', { class: 'list' }, past.map(eventRow))] : []),
     ...sec('Activities', '＋ Activity', () => activityForm(c), activities.length ? h('div', { class: 'list' }, activities.map(actRow)) : emptyBox('Hindi tuition, art class, Toastmasters youth… add them here.')),
-    ...sec('Exam ladder', '＋ Level', () => ladderForm(c, null, ladder), tracks.size ? h('div', { class: 'list' }, [...tracks].map(([t, s]) => ladderCard(t, s))) : emptyBox('Add exam levels to track progress.')));
+    ...sec('Ladders & levels', '＋ Level', () => ladderForm(c, null, ladder), tracks.size ? h('div', { class: 'list' }, [...tracks].map(([t, s]) => ladderCard(t, s))) : emptyBox('Exam levels, belts, olympiad rounds — add a ladder to track progress.'),
+      h('button', { class: 'btn small', onclick: () => ladderTemplateForm(c, tracks) }, '＋ Ladder')));
+}
+
+function ladderTemplateForm(c, existingTracks) {
+  openForm({
+    title: 'Add a ladder', submitLabel: 'Add ladder', values: { template: Object.keys(LADDERS)[0] },
+    fields: [{ name: 'template', label: 'Choose one — you can rename or edit any step afterwards', type: 'select', options: Object.entries(LADDERS).map(([k, v]) => [k, `${k} (${v.length} steps)`]) }],
+    onSubmit: async ({ values }) => {
+      const track = values.template;
+      if (existingTracks.has(track)) throw new Error(`“${track}” is already on the dashboard.`);
+      for (const [i, level] of LADDERS[track].entries()) await api('POST', `/api/children/${c.id}/ladder`, { track, level, status: 'planned', sort: i });
+      refresh();
+    },
+  });
 }
 
 function eventForm(c, ev) {

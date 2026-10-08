@@ -33,6 +33,8 @@ CREATE TABLE IF NOT EXISTS entries (
   title TEXT NOT NULL,
   date TEXT NOT NULL,
   notes TEXT,
+  level TEXT,
+  result TEXT,
   is_sample INTEGER NOT NULL DEFAULT 0,
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -126,6 +128,8 @@ function openDb(dataDir) {
   migrate(db);
   db.exec(SCHEMA);
   for (const t of ['entries', 'events', 'activities']) ensureColumn(db, t, 'is_sample', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(db, 'entries', 'level', 'TEXT');
+  ensureColumn(db, 'entries', 'result', 'TEXT');
   return db;
 }
 

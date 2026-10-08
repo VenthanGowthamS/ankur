@@ -17,8 +17,10 @@ function day(offset) {
 
 function addSampleContent(db, uploadsDir, childId, createdBy) {
   const entry = (category, title, offset, notes, ...files) => {
-    const id = Number(db.prepare('INSERT INTO entries (child_id, category, title, date, notes, created_by, is_sample) VALUES (?, ?, ?, ?, ?, ?, 1)')
-      .run(childId, category, title, day(offset), notes, createdBy).lastInsertRowid);
+    let level = null, result = null;
+    if (files.length && typeof files[files.length - 1] === 'object') ({ level = null, result = null } = files.pop());
+    const id = Number(db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, created_by, is_sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)')
+      .run(childId, category, title, day(offset), notes, level, result, createdBy).lastInsertRowid);
     for (const name of files) {
       const ext = path.extname(name);
       const file = crypto.randomBytes(16).toString('hex') + ext;
@@ -39,11 +41,24 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   entry('hindi', 'Hindi poem recitation', -67, 'Recited without a single prompt. Teacher was delighted.');
   entry('accolade', 'Star of the week', -80, 'Awarded for kindness in class.');
 
+  // Achievements beyond the classroom: olympiads, martial arts, sports, skating
+  entry('olympiad', 'Maths Olympiad — zonal round', -22, 'Solved the tricky pattern question all by herself.', 'medal.png', { level: 'zonal', result: 'Gold medal · top 5%' });
+  entry('olympiad', 'Science Olympiad — school round', -60, 'First time sitting an olympiad paper. Stayed calm for the full hour.', { level: 'school', result: 'Distinction' });
+  entry('martial', 'Karate — yellow belt grading', -16, 'Kata performed without a pause. Sensei said her stance was perfect.', 'belt.png', { result: 'Yellow belt' });
+  entry('martial', 'Taekwondo inter-club tournament', -41, 'Sparring, under-8 category. Lost the final by one point.', { level: 'zonal', result: 'Silver medal' });
+  entry('sports', 'Football — zonal tournament', -28, 'Scored a goal in the semi-final. Team lost the final on penalties.', { level: 'zonal', result: 'Runner-up (team)' });
+  entry('sports', 'Football — national selection trials', -70, 'Made the shortlist from over 200 children.', { level: 'national', result: 'Shortlisted' });
+  entry('sports', 'International youth football festival', -95, 'Played three matches against teams from four countries.', { level: 'international', result: 'Team participant' });
+  entry('skating', 'Skating — Level 2 badge', -35, 'Learned backward crossovers this term.', { result: 'Level 2 passed' });
+  entry('skating', 'Skating showcase', -75, 'Performed a two-minute routine to music in front of parents.', { level: 'school', result: 'Gold medal' });
+
   const event = (title, offset, kind, location, status = 'upcoming', result = null) =>
     db.prepare('INSERT INTO events (child_id, title, date, kind, location, status, result, is_sample) VALUES (?, ?, ?, ?, ?, ?, ?, 1)')
       .run(childId, title, day(offset), kind, location, status, result);
   event('Inter-school colouring contest', 37, 'contest', 'Community centre');
   event('Cambridge Movers', 150, 'exam', null);
+  event('Zonal football tournament', 21, 'contest', 'Sports hall');
+  event('Maths Olympiad — national round', 55, 'exam', null);
   event('School talent show', -30, 'performance', 'School hall', 'done', 'Sang with the class choir');
   event('Hindi recitation contest', -62, 'contest', 'Community centre', 'done', '2nd place');
 
@@ -53,6 +68,9 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   activity('Hindi tuition', 'hindi', 'Saturdays 10am', 'Mrs Sharma');
   activity('Art class', 'art', 'Wednesdays 4pm', null);
   activity('Toastmasters Youth', 'speech', '1st Sunday', null);
+  activity('Karate', 'martial', 'Tuesdays 6pm', 'Sensei Lee');
+  activity('Football', 'sports', 'Saturdays 4pm', 'Zone team');
+  activity('Skating', 'skating', 'Sundays 9am', null);
 }
 
 // Removes everything flagged as sample for one child, including uploaded files. Returns the file names to delete.

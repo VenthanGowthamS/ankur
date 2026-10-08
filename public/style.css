@@ -102,6 +102,10 @@ a { color: var(--leaf-d); }
 [data-cat="accolade"] { --c: #c24d6a; }
 [data-cat="school"] { --c: #4f7f3a; }
 [data-cat="other"] { --c: #77806b; }
+[data-cat="olympiad"] { --c: #5b6ee1; }
+[data-cat="martial"] { --c: #b3302e; }
+[data-cat="sports"] { --c: #1f9d8a; }
+[data-cat="skating"] { --c: #2f8fd0; }
 .badge {
   display: inline-flex; align-items: center; gap: 4px; font-size: .78rem; font-weight: 600; padding: 2px 10px;
   border-radius: 999px; color: var(--c, var(--muted));
@@ -268,3 +272,8 @@ label.field { display: grid; gap: 4px; font-size: .88rem; color: var(--muted); }
 .swap { text-align: center; margin: 16px 0 0; color: var(--muted); font-size: .95rem; }
 .link { background: none; border: 0; padding: 0; color: var(--leaf-d); font-weight: 600; text-decoration: underline; cursor: pointer; font-size: inherit; }
 .note { background: var(--leaf-soft); border-radius: 14px; padding: 12px 14px; font-size: .95rem; }
+
+.wins { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.win { font-size: .8rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+.win.result { background: var(--amber-soft); color: var(--ink); }
+.win.level { background: var(--leaf-soft); color: var(--leaf-d); }

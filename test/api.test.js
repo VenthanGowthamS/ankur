@@ -207,7 +207,7 @@ test('demo seed loads a usable family and refuses to overwrite real data', async
     const parent = await login(CREDENTIALS.parent.email, CREDENTIALS.parent.password);
     const sum = await (await fetch(url + '/api/children/1/summary', { headers: { cookie: parent.cookie } })).json();
     assert.equal(sum.examsPassed, 1);
-    assert.equal(sum.upcomingEvents, 2);
+    assert.equal(sum.upcomingEvents, 4);
     srv.close();
     assert.throws(() => seedDemo(dir), /already has accounts/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -270,4 +270,19 @@ test('sample moments load, never touch real ones, and remove cleanly', async () 
     assert.equal((await (await j('/api/children/1/events', 'GET', null, cookie)).json()).length, 0);
     assert.equal((await j('/api/children/1/samples', 'POST', null)).status, 401, 'needs sign-in');
   } finally { srv?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('achievements carry a level and a result; new areas are accepted', async () => {
+  const mk = (extra) => { const f = new FormData(); f.set('title', 'Zonal football'); f.set('date', '2026-09-01'); for (const [k, v] of Object.entries(extra)) f.set(k, v); return f; };
+  const ok = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'sports', level: 'zonal', result: 'Runner-up' }) });
+  assert.equal(ok.status, 201);
+  assert.equal(ok.json.level, 'zonal');
+  assert.equal(ok.json.result, 'Runner-up');
+  for (const category of ['olympiad', 'martial', 'skating']) {
+    assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category }) })).status, 201, category);
+  }
+  assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'sports', level: 'galaxy' }) })).status, 400, 'unknown level');
+  const edited = await call('PUT', `/api/entries/${ok.json.id}`, { cookie: parentCookie, body: { level: '', result: 'Champion' } });
+  assert.equal(edited.json.level, null, 'level can be cleared');
+  assert.equal(edited.json.result, 'Champion');
 });
