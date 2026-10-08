@@ -8,8 +8,9 @@ const bcrypt = require('bcryptjs');
 const { openDb, seedLadder, tx } = require('./db');
 const { addSampleContent, removeSampleContent } = require('./demo-content');
 
-const CATEGORIES = ['art', 'speech', 'exam', 'olympiad', 'hindi', 'martial', 'sports', 'skating', 'accolade', 'school', 'other'];
+const CATEGORIES = ['art', 'speech', 'exam', 'olympiad', 'coding', 'robotics', 'hindi', 'martial', 'sports', 'skating', 'accolade', 'school', 'other'];
 const LEVELS = ['school', 'zonal', 'national', 'international'];
+const SUBJECTS = ['maths', 'english', 'science', 'computer', 'gk', 'hindi', 'social', 'other'];
 const SESSION_DAYS = 90; // sliding: every visit renews it, so regular use never signs you out
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -75,6 +76,8 @@ const ENTRY_FIELDS = {
   notes: { type: 'str', max: 5000 },
   level: { type: 'enum', values: LEVELS },
   result: { type: 'str', max: 120 },
+  subject: { type: 'enum', values: SUBJECTS },
+  score: { type: 'str', max: 40 },
 };
 
 const CHILD_FIELDS = {
@@ -384,8 +387,8 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     try {
       const v = parseFields(ENTRY_FIELDS, req.body);
       const id = tx(db, () => {
-        const r = db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(req.child.id, v.category, v.title, v.date, v.notes ?? null, v.level ?? null, v.result ?? null, req.user.id);
+        const r = db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, subject, score, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          .run(req.child.id, v.category, v.title, v.date, v.notes ?? null, v.level ?? null, v.result ?? null, v.subject ?? null, v.score ?? null, req.user.id);
         saveMedia(Number(r.lastInsertRowid), req.files);
         return Number(r.lastInsertRowid);
       });

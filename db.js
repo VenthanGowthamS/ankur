@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS entries (
   notes TEXT,
   level TEXT,
   result TEXT,
+  subject TEXT,
+  score TEXT,
   is_sample INTEGER NOT NULL DEFAULT 0,
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -130,6 +132,8 @@ function openDb(dataDir) {
   for (const t of ['entries', 'events', 'activities']) ensureColumn(db, t, 'is_sample', 'INTEGER NOT NULL DEFAULT 0');
   ensureColumn(db, 'entries', 'level', 'TEXT');
   ensureColumn(db, 'entries', 'result', 'TEXT');
+  ensureColumn(db, 'entries', 'subject', 'TEXT');
+  ensureColumn(db, 'entries', 'score', 'TEXT');
   return db;
 }
 

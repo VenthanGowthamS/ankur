@@ -8,7 +8,7 @@ A private growth portfolio and parent dashboard for our children — art, speech
 
 - **Private by design** — login only. Nothing is public, uploads are served only to signed-in users, pages are `noindex`.
 - **Three roles** — *Parent* (add/edit everything), *Family* (view the portfolio only) and *Child* (view their own journey, with Buddy).
-- **Portfolio journey** — a timeline of moments with notes, photos, voice/speech recordings, videos and PDFs. Areas include Art, Speech, Exams, Olympiads, Hindi, Martial arts, Sports, Skating, Accolades and School — each achievement can carry a level (school, zonal, national, international) and a result (medal, rank, belt).
+- **Portfolio journey** — a timeline of moments with notes, photos, voice/speech recordings, videos and PDFs. Areas include Art, Speech, Exams, Olympiads (subject, score and percentage), Coding, Robotics, Hindi, Martial arts, Sports, Skating, Accolades and School — each achievement can carry a level (school, zonal, national, international) and a result (medal, rank, belt).
 - **Parent dashboard** — upcoming contests & exams, activities (Hindi tuition, art class, …) and an **exam ladder** (Cambridge pre-seeded; one-tap ladders for karate and taekwondo belts, olympiad rounds, skating levels and football; add any track).
 - **Kid login + Buddy** — each child can have a view-only login (fenced to their own profile) with a friendly, tappable sprout buddy. Parents don't see it. See [docs/WHY.md](docs/WHY.md).
 - **Multi-child ready**, installable on a phone (PWA), light/dark mode.

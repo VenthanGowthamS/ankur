@@ -17,10 +17,10 @@ function day(offset) {
 
 function addSampleContent(db, uploadsDir, childId, createdBy) {
   const entry = (category, title, offset, notes, ...files) => {
-    let level = null, result = null;
-    if (files.length && typeof files[files.length - 1] === 'object') ({ level = null, result = null } = files.pop());
-    const id = Number(db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, created_by, is_sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)')
-      .run(childId, category, title, day(offset), notes, level, result, createdBy).lastInsertRowid);
+    let level = null, result = null, subject = null, score = null;
+    if (files.length && typeof files[files.length - 1] === 'object') ({ level = null, result = null, subject = null, score = null } = files.pop());
+    const id = Number(db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, subject, score, created_by, is_sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)')
+      .run(childId, category, title, day(offset), notes, level, result, subject, score, createdBy).lastInsertRowid);
     for (const name of files) {
       const ext = path.extname(name);
       const file = crypto.randomBytes(16).toString('hex') + ext;
@@ -42,8 +42,15 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   entry('accolade', 'Star of the week', -80, 'Awarded for kindness in class.');
 
   // Achievements beyond the classroom: olympiads, martial arts, sports, skating
-  entry('olympiad', 'Maths Olympiad — zonal round', -22, 'Solved the tricky pattern question all by herself.', 'medal.png', { level: 'zonal', result: 'Gold medal · top 5%' });
-  entry('olympiad', 'Science Olympiad — school round', -60, 'First time sitting an olympiad paper. Stayed calm for the full hour.', { level: 'school', result: 'Distinction' });
+  entry('olympiad', 'SASMO — Maths', -22, 'Open-ended section was the hard part. Checked her answers twice.', 'medal.png', { level: 'international', result: 'Silver medal', subject: 'maths', score: '71 / 85' });
+  entry('olympiad', 'SOF IMO — Level 1 (Maths)', -48, 'Zonal rank from the Student Performance Report. Qualified for Level 2.', { level: 'zonal', result: 'Zonal rank 9', subject: 'maths', score: '52 / 60' });
+  entry('olympiad', 'SOF IEO — Level 1 (English)', -60, 'Strong on vocabulary, lost marks on spoken & written expression.', { level: 'school', result: 'School rank 3', subject: 'english', score: '44 / 60' });
+  entry('olympiad', 'SOF NSO — Level 1 (Science)', -75, 'First science olympiad. Loved the achievers section.', { level: 'zonal', result: 'Medal of Distinction', subject: 'science', score: '48 / 60' });
+  // Coding and robotics classes
+  entry('coding', 'First Scratch game: Catch the stars', -12, 'Built it herself with sprites, a score counter and a timer. Showed it to the whole family.', { result: 'Block-coding level complete' });
+  entry('coding', 'Python turtle drawing', -40, 'Wrote loops to draw a spiral flower. Debugged one indentation error alone.', { result: 'Started Python basics' });
+  entry('robotics', 'Line-following robot', -20, 'Built the robot, then programmed it to follow a black line around the track.', 'robot.png', { result: 'Challenge completed' });
+  entry('robotics', 'Robotics showcase day', -52, 'Presented the team’s robot to parents. Explained the sensors without notes.', { level: 'school', result: 'Best team spirit' });
   entry('martial', 'Karate — yellow belt grading', -16, 'Kata performed without a pause. Sensei said her stance was perfect.', 'belt.png', { result: 'Yellow belt' });
   entry('martial', 'Taekwondo inter-club tournament', -41, 'Sparring, under-8 category. Lost the final by one point.', { level: 'zonal', result: 'Silver medal' });
   entry('sports', 'Football — zonal tournament', -28, 'Scored a goal in the semi-final. Team lost the final on penalties.', { level: 'zonal', result: 'Runner-up (team)' });
@@ -68,6 +75,8 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   activity('Hindi tuition', 'hindi', 'Saturdays 10am', 'Mrs Sharma');
   activity('Art class', 'art', 'Wednesdays 4pm', null);
   activity('Toastmasters Youth', 'speech', '1st Sunday', null);
+  activity('Coding class', 'coding', 'Thursdays 5pm', 'Code club');
+  activity('Robotics class', 'robotics', 'Fridays 4pm', 'Robotics lab');
   activity('Karate', 'martial', 'Tuesdays 6pm', 'Sensei Lee');
   activity('Football', 'sports', 'Saturdays 4pm', 'Zone team');
   activity('Skating', 'skating', 'Sundays 9am', null);

@@ -282,6 +282,11 @@ test('achievements carry a level and a result; new areas are accepted', async ()
     assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category }) })).status, 201, category);
   }
   assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'sports', level: 'galaxy' }) })).status, 400, 'unknown level');
+  const oly = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'olympiad', subject: 'maths', score: '52 / 60', result: 'Zonal rank 9' }) });
+  assert.equal(oly.status, 201);
+  assert.equal(oly.json.subject, 'maths');
+  assert.equal(oly.json.score, '52 / 60');
+  assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'olympiad', subject: 'astrology' }) })).status, 400, 'unknown subject');
   const edited = await call('PUT', `/api/entries/${ok.json.id}`, { cookie: parentCookie, body: { level: '', result: 'Champion' } });
   assert.equal(edited.json.level, null, 'level can be cleared');
   assert.equal(edited.json.result, 'Champion');

@@ -3,17 +3,29 @@
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
 const CATS = {
-  art: ['🎨', 'Art'], speech: ['🎤', 'Speech'], exam: ['📜', 'Exams'], olympiad: ['🧮', 'Olympiads'], hindi: ['🪔', 'Hindi'],
+  art: ['🎨', 'Art'], speech: ['🎤', 'Speech'], exam: ['📜', 'Exams'], olympiad: ['🧮', 'Olympiads'], coding: ['💻', 'Coding'], robotics: ['🤖', 'Robotics'], hindi: ['🪔', 'Hindi'],
   martial: ['🥋', 'Martial arts'], sports: ['⚽', 'Sports'], skating: ['⛸️', 'Skating'],
   accolade: ['🏅', 'Accolades'], school: ['🏫', 'School'], other: ['✨', 'Other'],
 };
 const LEVELS = [['school', '🏫 School'], ['zonal', '📍 Zonal'], ['national', '🏆 National'], ['international', '🌍 International']];
+const SUBJECTS = [['maths', '🔢 Maths'], ['english', '📖 English'], ['science', '🔬 Science'], ['computer', '💻 Computer'],
+  ['gk', '🌍 General knowledge'], ['hindi', '🪔 Hindi'], ['social', '🗺️ Social studies'], ['other', '✨ Other']];
+const subjectLabel = (k) => (SUBJECTS.find((x) => x[0] === k) || [, k])[1];
+// "52 / 60" -> "52 / 60 · 87%"; anything else is shown as typed.
+function scoreText(e) {
+  if (!e.score) return '';
+  const m = /^\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*$/.exec(e.score);
+  return m && Number(m[2]) > 0 ? `${e.score.trim()} · ${Math.round((Number(m[1]) / Number(m[2])) * 100)}%` : e.score;
+}
 // Ready-made ladders (belts, olympiad rounds…). Editable after adding.
 const LADDERS = {
   'Karate belts': ['White belt', 'Yellow belt', 'Orange belt', 'Green belt', 'Blue belt', 'Brown belt', 'Black belt'],
   'Taekwondo belts': ['White belt', 'Yellow belt', 'Green belt', 'Blue belt', 'Red belt', 'Black belt'],
-  'Olympiad': ['School round', 'Zonal round', 'National round', 'International round'],
+  'SOF Olympiad stages': ['Level 1', 'Level 2'],
+  'SASMO awards': ['Participation', 'Honourable mention', 'Bronze', 'Silver', 'Gold', 'Perfect score'],
   'Skating levels': ['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5'],
+  'Coding levels': ['Block coding (Scratch)', 'Python basics', 'Games & apps', 'Web basics', 'Own projects'],
+  'Robotics levels': ['Build basics', 'Sensors & motors', 'Programming robots', 'Autonomous challenges', 'Robotics competition'],
   'Football': ['School team', 'Zonal team', 'National squad', 'International'],
 };
 const EVENT_KINDS = [['contest', 'Contest'], ['exam', 'Exam'], ['performance', 'Performance'], ['school', 'School'], ['other', 'Other']];
@@ -324,7 +336,9 @@ function buildEntry(e, c, emoji, label) {
         h('span', { class: 'badge' }, `${emoji} ${label}`),
         h('h3', null, e.title),
         h('div', { class: 'when' }, fmtDate(e.date)),
-        (e.level || e.result) && h('div', { class: 'wins' },
+        (e.level || e.result || e.subject || e.score) && h('div', { class: 'wins' },
+          e.subject && h('span', { class: 'win subject' }, subjectLabel(e.subject)),
+          e.score && h('span', { class: 'win score' }, `📝 ${scoreText(e)}`),
           e.result && h('span', { class: 'win result' }, `🏅 ${e.result}`),
           e.level && h('span', { class: 'win level' }, (LEVELS.find((l) => l[0] === e.level) || [, e.level])[1]))),
       isParent() && h('button', { class: 'btn small ghost', 'aria-label': `Edit ${e.title}`, onclick: () => entryForm(c, e) }, 'Edit')),
@@ -370,19 +384,21 @@ function entryForm(c, entry) {
       { name: 'title', label: 'What happened?', required: true, max: 160 },
       { name: 'category', label: 'Area', type: 'select', options: catOptions() },
       { name: 'date', label: 'Date', type: 'date', required: true },
+      { name: 'subject', label: 'Subject — for olympiads and tests', type: 'select', options: [['', '— none —'], ...SUBJECTS] },
+      { name: 'score', label: 'Score', max: 40, hint: 'Marks out of total, e.g. 52 / 60 — the percentage is worked out for you' },
       { name: 'level', label: 'Level of the event', type: 'select', options: [['', '— not a competition —'], ...LEVELS] },
-      { name: 'result', label: 'Result — medal, rank, belt, badge', max: 120, hint: 'e.g. Gold medal · Yellow belt · Runner-up' },
+      { name: 'result', label: 'Result — medal, rank, belt, badge', max: 120, hint: 'e.g. Gold medal · Zonal rank 9 · Honourable mention · Yellow belt' },
       { name: 'notes', label: 'Notes — scores, feedback, how it felt', type: 'textarea', max: 5000 },
       { name: 'files', label: editing ? 'Add more photos, recordings or PDFs' : 'Photos, recordings, videos or PDFs', type: 'files', hint: 'Up to 8 files, 80 MB each.' },
     ],
     extra: existing,
     onSubmit: async ({ values, files }) => {
       if (editing) {
-        await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes, level: values.level, result: values.result });
+        await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes, level: values.level, result: values.result, subject: values.subject, score: values.score });
         if (files.length) { const fd = new FormData(); files.forEach((f) => fd.append('files', f)); await api('POST', `/api/entries/${entry.id}/media`, fd); }
       } else {
         const fd = new FormData();
-        ['title', 'category', 'date', 'notes', 'level', 'result'].forEach((k) => fd.set(k, values[k]));
+        ['title', 'category', 'date', 'notes', 'level', 'result', 'subject', 'score'].forEach((k) => fd.set(k, values[k]));
         files.forEach((f) => fd.append('files', f));
         await api('POST', `/api/children/${c.id}/entries`, fd);
       }
@@ -396,11 +412,12 @@ function entryForm(c, entry) {
 /* ---------- dashboard (parents) ---------- */
 async function viewDashboard(main) {
   const c = child();
-  const [sum, events, activities, ladder] = await Promise.all([
+  const [sum, events, activities, ladder, olympiads] = await Promise.all([
     api('GET', `/api/children/${c.id}/summary`),
     api('GET', `/api/children/${c.id}/events`),
     api('GET', `/api/children/${c.id}/activities`),
     api('GET', `/api/children/${c.id}/ladder`),
+    api('GET', `/api/children/${c.id}/entries?category=olympiad`),
   ]);
   const tile = (n, label) => h('div', { class: 'card tile' }, h('b', null, n), h('span', null, label));
   const tiles = h('div', { class: 'tiles' },
@@ -439,6 +456,13 @@ async function viewDashboard(main) {
       h('div', { class: 'lvl' }, s.level),
       h('div', { class: 'sc' }, [s.score, s.date && fmtDate(s.date)].filter(Boolean).join(' · ') || s.status)))));
 
+  const bySubject = new Map();
+  olympiads.forEach((e) => { const k = e.subject || 'other'; if (!bySubject.has(k)) bySubject.set(k, []); bySubject.get(k).push(e); });
+  const scoreCard = (k, rows) => h('div', { class: 'card' }, h('h3', null, subjectLabel(k)),
+    h('div', { class: 'scores' }, rows.map((r) => h('div', { class: 'score-row' },
+      h('div', { class: 'main' }, h('div', { class: 'title' }, r.title), h('div', { class: 'small muted' }, [fmtDate(r.date), r.result].filter(Boolean).join(' · '))),
+      h('b', { class: 'pts' }, scoreText(r) || '—')))));
+
   const sec = (title, addLabel, onAdd, content, extra) => [
     h('div', { class: 'section-head' }, h('h2', null, title), h('div', { class: 'row' }, extra, h('button', { class: 'btn small', onclick: onAdd }, addLabel))), content];
   const emptyBox = (t) => h('div', { class: 'empty' }, t);
@@ -448,6 +472,7 @@ async function viewDashboard(main) {
     ...sec('Coming up', '＋ Event', () => eventForm(c), upcoming.length ? h('div', { class: 'list' }, upcoming.map(eventRow)) : emptyBox('No contests or exams planned. Add the next one.')),
     ...(past.length ? [h('div', { class: 'month' }, 'Recently done'), h('div', { class: 'list' }, past.map(eventRow))] : []),
     ...sec('Activities', '＋ Activity', () => activityForm(c), activities.length ? h('div', { class: 'list' }, activities.map(actRow)) : emptyBox('Hindi tuition, art class, Toastmasters youth… add them here.')),
+    ...(olympiads.length ? [h('div', { class: 'section-head' }, h('h2', null, 'Olympiad scores')), h('div', { class: 'list' }, [...bySubject].map(([k, r]) => scoreCard(k, r)))] : []),
     ...sec('Ladders & levels', '＋ Level', () => ladderForm(c, null, ladder), tracks.size ? h('div', { class: 'list' }, [...tracks].map(([t, s]) => ladderCard(t, s))) : emptyBox('Exam levels, belts, olympiad rounds — add a ladder to track progress.'),
       h('button', { class: 'btn small', onclick: () => ladderTemplateForm(c, tracks) }, '＋ Ladder')));
 }
