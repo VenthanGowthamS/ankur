@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS entries (
   title TEXT NOT NULL,
   date TEXT NOT NULL,
   notes TEXT,
+  is_sample INTEGER NOT NULL DEFAULT 0,
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -54,6 +55,7 @@ CREATE TABLE IF NOT EXISTS activities (
   schedule TEXT,
   provider TEXT,
   notes TEXT,
+  is_sample INTEGER NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS events (
@@ -65,7 +67,8 @@ CREATE TABLE IF NOT EXISTS events (
   location TEXT,
   status TEXT NOT NULL DEFAULT 'upcoming' CHECK (status IN ('upcoming','done','skipped')),
   result TEXT,
-  notes TEXT
+  notes TEXT,
+  is_sample INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_events_child_date ON events(child_id, date);
 CREATE TABLE IF NOT EXISTS ladder (
@@ -111,6 +114,10 @@ function migrate(db) {
   db.exec('PRAGMA foreign_keys = ON');
 }
 
+function ensureColumn(db, table, column, ddl) {
+  if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+}
+
 function openDb(dataDir) {
   fs.mkdirSync(path.join(dataDir, 'uploads'), { recursive: true });
   const db = new DatabaseSync(path.join(dataDir, 'ankur.db'));
@@ -118,6 +125,7 @@ function openDb(dataDir) {
   db.exec('PRAGMA foreign_keys = ON');
   migrate(db);
   db.exec(SCHEMA);
+  for (const t of ['entries', 'events', 'activities']) ensureColumn(db, t, 'is_sample', 'INTEGER NOT NULL DEFAULT 0');
   return db;
 }
 

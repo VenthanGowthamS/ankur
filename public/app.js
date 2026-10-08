@@ -289,7 +289,8 @@ async function viewPortfolio(main) {
   let timeline;
   if (!shown.length) {
     timeline = h('div', { class: 'empty' }, h('span', { class: 'big' }, '🌱'),
-      entries.length ? 'Nothing here yet for this area.' : isParent() ? 'Plant the first moment — a painting, a speech, a certificate.' : 'Nothing has been added yet.');
+      entries.length ? 'Nothing here yet for this area.' : isParent() ? 'Plant the first moment — a painting, a speech, a certificate.' : 'Nothing has been added yet.',
+      !entries.length && isParent() && h('p', null, h('button', { class: 'btn', onclick: () => loadSamples(c) }, '✨ Or load sample moments to try the app')));
   } else {
     timeline = h('div', { class: 'timeline' });
     let lastMonth = '';
@@ -515,6 +516,20 @@ async function viewSettings(main) {
           h('div', { class: 'small muted' }, 'Preview the kid view with Buddy. Nothing changes.')),
         h('button', { class: 'btn', onclick: () => { state.previewKid = true; state.view = 'portfolio'; renderShell(); } }, '👀 Preview kid view')));
 
+    const sum = await api('GET', `/api/children/${c.id}/summary`);
+    parts.push(
+      h('div', { class: 'card item' },
+        h('div', { class: 'main' }, h('div', { class: 'title' }, 'Sample moments'),
+          h('div', { class: 'small muted' }, sum.samples
+            ? `${sum.samples} made-up moments (plus events and activities) are loaded so you can explore. Real ones you add are never touched.`
+            : 'Fill the journey with made-up moments, a sound clip and a certificate, to see how everything works.')),
+        sum.samples
+          ? h('button', { class: 'btn danger', onclick: async () => {
+            if (!(await confirmBox('Remove all the sample moments, events and activities? Anything you added yourself stays.', 'Remove samples'))) return;
+            try { await api('DELETE', `/api/children/${c.id}/samples`); toast('Sample moments removed'); refresh(); } catch (ex) { toast(ex.message); }
+          } }, 'Remove samples')
+          : h('button', { class: 'btn', onclick: () => loadSamples(c) }, '✨ Load samples')));
+
     const users = await api('GET', '/api/users');
     parts.push(
       h('div', { class: 'section-head' }, h('h2', null, 'Who can sign in'), h('button', { class: 'btn small', onclick: () => userForm() }, '＋ Invite')),
@@ -534,6 +549,15 @@ async function viewSettings(main) {
         h('button', { class: 'btn', onclick: passwordForm }, 'Change password'),
         h('button', { class: 'btn', onclick: async () => { await api('POST', '/api/logout'); state.user = null; boot(); } }, 'Sign out'))));
   main.replaceChildren(...parts);
+}
+
+async function loadSamples(c) {
+  try {
+    await api('POST', `/api/children/${c.id}/samples`);
+    state.view = 'portfolio'; state.filter = 'all';
+    toast('Sample moments added — remove them any time in the Family tab');
+    refresh();
+  } catch (ex) { toast(ex.message); }
 }
 
 function childForm(c) {

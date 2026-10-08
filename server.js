@@ -6,6 +6,7 @@ const express = require('express');
 const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const { openDb, seedLadder, tx } = require('./db');
+const { addSampleContent, removeSampleContent } = require('./demo-content');
 
 const CATEGORIES = ['art', 'speech', 'exam', 'hindi', 'accolade', 'school', 'other'];
 const SESSION_DAYS = 90; // sliding: every visit renews it, so regular use never signs you out
@@ -477,6 +478,19 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     });
   });
 
+  // ---- sample moments: try the app with fictional content, remove it with one tap
+  app.post('/api/children/:cid/samples', requireParent, childParam, (req, res) => {
+    const have = db.prepare('SELECT COUNT(*) AS n FROM entries WHERE child_id = ? AND is_sample = 1').get(req.child.id).n;
+    if (have) throw new HttpError(409, 'Sample moments are already loaded');
+    tx(db, () => addSampleContent(db, uploadDir, req.child.id, req.user.id));
+    res.status(201).json({ ok: true });
+  });
+  app.delete('/api/children/:cid/samples', requireParent, childParam, (req, res) => {
+    const files = tx(db, () => removeSampleContent(db, req.child.id));
+    files.forEach(removeFile);
+    res.json({ ok: true });
+  });
+
   // ---- dashboard summary
   app.get('/api/children/:cid/summary', requireParent, childParam, (req, res) => {
     const cid = req.child.id;
@@ -489,6 +503,7 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
       activeActivities: db.prepare('SELECT COUNT(*) AS n FROM activities WHERE child_id = ? AND active = 1').get(cid).n,
       upcomingEvents: db.prepare("SELECT COUNT(*) AS n FROM events WHERE child_id = ? AND status = 'upcoming'").get(cid).n,
       examsPassed: db.prepare("SELECT COUNT(*) AS n FROM ladder WHERE child_id = ? AND status = 'passed'").get(cid).n,
+      samples: db.prepare('SELECT COUNT(*) AS n FROM entries WHERE child_id = ? AND is_sample = 1').get(cid).n,
     });
   });
 

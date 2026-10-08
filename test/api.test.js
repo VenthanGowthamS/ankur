@@ -239,3 +239,35 @@ test('grown-ups can use a simple username, and sessions renew while in use', asy
     assert.ok(left > 89 * 864e5, 'session renewed to ~90 days');
   } finally { srv?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('sample moments load, never touch real ones, and remove cleanly', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ankur-samples-'));
+  let srv;
+  try {
+    const app = createApp({ dataDir: dir });
+    srv = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
+    const url = `http://127.0.0.1:${srv.address().port}`;
+    const j = (p, method, body, cookie) => fetch(url + p, { method, headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    const setup = await j('/api/setup', 'POST', { name: 'P', email: 'parent1', password: 'longenough1', childName: 'Kid' });
+    const cookie = (setup.headers.get('set-cookie') || '').split(';')[0];
+
+    const real = new FormData(); real.set('title', 'My real moment'); real.set('category', 'art'); real.set('date', '2026-10-01');
+    assert.equal((await fetch(url + '/api/children/1/entries', { method: 'POST', headers: { cookie }, body: real })).status, 201);
+
+    assert.equal((await j('/api/children/1/samples', 'POST', null, cookie)).status, 201);
+    assert.equal((await j('/api/children/1/samples', 'POST', null, cookie)).status, 409, 'no double-loading');
+    let entries = await (await j('/api/children/1/entries', 'GET', null, cookie)).json();
+    assert.ok(entries.length > 8 && entries.some((e) => e.media.length));
+    assert.ok(fs.readdirSync(path.join(dir, 'uploads')).length >= 5);
+    const sum = await (await j('/api/children/1/summary', 'GET', null, cookie)).json();
+    assert.ok(sum.samples > 8);
+
+    assert.equal((await j('/api/children/1/samples', 'DELETE', null, cookie)).status, 200);
+    await new Promise((r) => setTimeout(r, 100));
+    entries = await (await j('/api/children/1/entries', 'GET', null, cookie)).json();
+    assert.deepEqual(entries.map((e) => e.title), ['My real moment'], 'the real moment survives');
+    assert.equal(fs.readdirSync(path.join(dir, 'uploads')).length, 0, 'sample files are deleted from disk');
+    assert.equal((await (await j('/api/children/1/events', 'GET', null, cookie)).json()).length, 0);
+    assert.equal((await j('/api/children/1/samples', 'POST', null)).status, 401, 'needs sign-in');
+  } finally { srv?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
+});
