@@ -207,7 +207,7 @@ test('demo seed loads a usable family and refuses to overwrite real data', async
     const parent = await login(CREDENTIALS.parent.email, CREDENTIALS.parent.password);
     const sum = await (await fetch(url + '/api/children/1/summary', { headers: { cookie: parent.cookie } })).json();
     assert.equal(sum.examsPassed, 1);
-    assert.equal(sum.upcomingEvents, 4);
+    assert.equal(sum.upcomingEvents, 6);
     srv.close();
     assert.throws(() => seedDemo(dir), /already has accounts/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -278,7 +278,7 @@ test('achievements carry a level and a result; new areas are accepted', async ()
   assert.equal(ok.status, 201);
   assert.equal(ok.json.level, 'zonal');
   assert.equal(ok.json.result, 'Runner-up');
-  for (const category of ['olympiad', 'martial', 'skating']) {
+  for (const category of ['olympiad', 'martial', 'skating', 'chinese', 'dance', 'stage', 'singing', 'writing']) {
     assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category }) })).status, 201, category);
   }
   assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'sports', level: 'galaxy' }) })).status, 400, 'unknown level');

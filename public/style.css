@@ -108,6 +108,11 @@ a { color: var(--leaf-d); }
 [data-cat="skating"] { --c: #2f8fd0; }
 [data-cat="coding"] { --c: #3d5a80; }
 [data-cat="robotics"] { --c: #a05a2c; }
+[data-cat="chinese"] { --c: #c8372d; }
+[data-cat="dance"] { --c: #d6478f; }
+[data-cat="stage"] { --c: #7a4bb8; }
+[data-cat="singing"] { --c: #2a8f6a; }
+[data-cat="writing"] { --c: #8a6a3a; }
 .badge {
   display: inline-flex; align-items: center; gap: 4px; font-size: .78rem; font-weight: 600; padding: 2px 10px;
   border-radius: 999px; color: var(--c, var(--muted));

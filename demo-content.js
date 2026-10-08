@@ -51,6 +51,17 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   entry('coding', 'Python turtle drawing', -40, 'Wrote loops to draw a spiral flower. Debugged one indentation error alone.', { result: 'Started Python basics' });
   entry('robotics', 'Line-following robot', -20, 'Built the robot, then programmed it to follow a black line around the track.', 'robot.png', { result: 'Challenge completed' });
   entry('robotics', 'Robotics showcase day', -52, 'Presented the team’s robot to parents. Explained the sensors without notes.', { level: 'school', result: 'Best team spirit' });
+  // Chinese, dance, stage, singing and writing
+  entry('chinese', 'Mandarin YCT 2 exam', -18, 'Listening and reading went well. Spoke a short self-introduction in Chinese.', { result: 'YCT 2 passed', score: '168 / 200' });
+  entry('chinese', 'Chinese calligraphy — spring couplet', -44, 'Wrote 福 with a brush for Chinese New Year. Practised stroke order every evening.', { level: 'school', result: 'Displayed in the school hall' });
+  entry('dance', 'Ballet recital — The Little Swan', -26, 'First time on a proper stage. Remembered every step.', { level: 'school', result: 'Pre-primary grade: Merit' });
+  entry('dance', 'Chinese dance — ribbon performance', -58, 'Ribbon dance for the National Day concert.', { result: 'Performed with the class' });
+  entry('stage', 'Speech & drama showcase — The Three Pigs', -21, 'Played the wolf and used a big voice. Spoke clearly to the back row.', { level: 'school', result: 'Lead role' });
+  entry('stage', 'School musical — chorus', -64, 'Learned three songs and the stage positions.', { result: 'Performed on both nights' });
+  entry('singing', 'Piano Grade 1 exam', -33, 'Played three pieces and scales. Nervous but steady.', { result: 'Grade 1 passed', score: '124 / 150' });
+  entry('singing', 'Choir festival performance', -50, 'Sang in a two-part song with the school choir.', { level: 'zonal', result: 'Silver award' });
+  entry('writing', 'My first short story: The Moon Garden', -15, 'Wrote 12 sentences all by herself and drew the pictures.', { result: 'Read aloud in class' });
+  entry('writing', 'Creative writing contest', -72, 'Wrote about a day as a raindrop.', { level: 'zonal', result: 'Highly commended' });
   entry('martial', 'Karate — yellow belt grading', -16, 'Kata performed without a pause. Sensei said her stance was perfect.', 'belt.png', { result: 'Yellow belt' });
   entry('martial', 'Taekwondo inter-club tournament', -41, 'Sparring, under-8 category. Lost the final by one point.', { level: 'zonal', result: 'Silver medal' });
   entry('sports', 'Football — zonal tournament', -28, 'Scored a goal in the semi-final. Team lost the final on penalties.', { level: 'zonal', result: 'Runner-up (team)' });
@@ -67,6 +78,8 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   event('Zonal football tournament', 21, 'contest', 'Sports hall');
   event('Maths Olympiad — national round', 55, 'exam', null);
   event('School talent show', -30, 'performance', 'School hall', 'done', 'Sang with the class choir');
+  event('Piano Grade 2 exam', 100, 'exam', 'Music school');
+  event('Speech & drama showcase', 40, 'performance', 'Drama school');
   event('Hindi recitation contest', -62, 'contest', 'Community centre', 'done', '2nd place');
 
   const activity = (name, category, schedule, provider) =>
@@ -77,6 +90,12 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   activity('Toastmasters Youth', 'speech', '1st Sunday', null);
   activity('Coding class', 'coding', 'Thursdays 5pm', 'Code club');
   activity('Robotics class', 'robotics', 'Fridays 4pm', 'Robotics lab');
+  activity('Chinese (Mandarin) tuition', 'chinese', 'Wednesdays 5pm', 'Ms Tan');
+  activity('Chinese calligraphy', 'chinese', 'Saturdays 2pm', null);
+  activity('Ballet', 'dance', 'Thursdays 4pm', 'Dance studio');
+  activity('Speech & drama', 'stage', 'Mondays 4pm', 'Drama school');
+  activity('Piano & choir', 'singing', 'Tuesdays 4pm', 'Music school');
+  activity('Creative writing', 'writing', 'Fridays 3pm', null);
   activity('Karate', 'martial', 'Tuesdays 6pm', 'Sensei Lee');
   activity('Football', 'sports', 'Saturdays 4pm', 'Zone team');
   activity('Skating', 'skating', 'Sundays 9am', null);

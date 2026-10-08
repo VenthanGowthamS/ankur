@@ -1,7 +1,7 @@
 {
   "name": "ankur",
   "version": "0.1.0",
-  "description": "Ankur \u2014 a private growth portfolio and parent dashboard for children.",
+  "description": "Ankur \u2014 a private growth portfolio, extra-curricular tracker and parent dashboard for children.",
   "private": true,
   "license": "UNLICENSED",
   "main": "server.js",

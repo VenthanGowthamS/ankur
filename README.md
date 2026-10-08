@@ -1,6 +1,6 @@
 # Ankur 🌱
 
-A private growth portfolio and parent dashboard for our children — art, speech, Cambridge exams, Hindi, accolades and everything in between, kept safe in one place.
+A private growth portfolio, **extra-curricular tracker** and parent dashboard for our children — art, speech, Cambridge exams, Chinese, Hindi, dance, drama, singing, writing, olympiads, sports, coding, accolades and everything in between, kept safe in one place.
 
 *Ankur (அங்குரம் / अंकुर) means "sprout".*
 

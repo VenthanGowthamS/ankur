@@ -8,9 +8,9 @@ const bcrypt = require('bcryptjs');
 const { openDb, seedLadder, tx } = require('./db');
 const { addSampleContent, removeSampleContent } = require('./demo-content');
 
-const CATEGORIES = ['art', 'speech', 'exam', 'olympiad', 'coding', 'robotics', 'hindi', 'martial', 'sports', 'skating', 'accolade', 'school', 'other'];
+const CATEGORIES = ['art', 'speech', 'exam', 'olympiad', 'coding', 'robotics', 'hindi', 'chinese', 'dance', 'stage', 'singing', 'writing', 'martial', 'sports', 'skating', 'accolade', 'school', 'other'];
 const LEVELS = ['school', 'zonal', 'national', 'international'];
-const SUBJECTS = ['maths', 'english', 'science', 'computer', 'gk', 'hindi', 'social', 'other'];
+const SUBJECTS = ['maths', 'english', 'science', 'computer', 'gk', 'hindi', 'chinese', 'social', 'other'];
 const SESSION_DAYS = 90; // sliding: every visit renews it, so regular use never signs you out
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 

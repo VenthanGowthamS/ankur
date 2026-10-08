@@ -1,15 +1,16 @@
 'use strict';
-/* Ankur — a private growth portfolio. Vanilla JS, no build step.
+/* Ankur — a private growth portfolio and extra-curricular tracker. Vanilla JS, no build step.
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
 const CATS = {
-  art: ['🎨', 'Art'], speech: ['🎤', 'Speech'], exam: ['📜', 'Exams'], olympiad: ['🧮', 'Olympiads'], coding: ['💻', 'Coding'], robotics: ['🤖', 'Robotics'], hindi: ['🪔', 'Hindi'],
+  art: ['🎨', 'Art'], speech: ['🎤', 'Speech'], exam: ['📜', 'Exams'], olympiad: ['🧮', 'Olympiads'], coding: ['💻', 'Coding'], robotics: ['🤖', 'Robotics'], hindi: ['🪔', 'Hindi'], chinese: ['🀄', 'Chinese'],
+  dance: ['💃', 'Dance'], stage: ['🎭', 'Drama & stage'], singing: ['🎵', 'Singing & music'], writing: ['✍️', 'Writing'],
   martial: ['🥋', 'Martial arts'], sports: ['⚽', 'Sports'], skating: ['⛸️', 'Skating'],
   accolade: ['🏅', 'Accolades'], school: ['🏫', 'School'], other: ['✨', 'Other'],
 };
 const LEVELS = [['school', '🏫 School'], ['zonal', '📍 Zonal'], ['national', '🏆 National'], ['international', '🌍 International']];
 const SUBJECTS = [['maths', '🔢 Maths'], ['english', '📖 English'], ['science', '🔬 Science'], ['computer', '💻 Computer'],
-  ['gk', '🌍 General knowledge'], ['hindi', '🪔 Hindi'], ['social', '🗺️ Social studies'], ['other', '✨ Other']];
+  ['gk', '🌍 General knowledge'], ['hindi', '🪔 Hindi'], ['chinese', '🀄 Chinese'], ['social', '🗺️ Social studies'], ['other', '✨ Other']];
 const subjectLabel = (k) => (SUBJECTS.find((x) => x[0] === k) || [, k])[1];
 // "52 / 60" -> "52 / 60 · 87%"; anything else is shown as typed.
 function scoreText(e) {
@@ -26,6 +27,12 @@ const LADDERS = {
   'Skating levels': ['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5'],
   'Coding levels': ['Block coding (Scratch)', 'Python basics', 'Games & apps', 'Web basics', 'Own projects'],
   'Robotics levels': ['Build basics', 'Sensors & motors', 'Programming robots', 'Autonomous challenges', 'Robotics competition'],
+  'Chinese (Mandarin) levels': ['YCT 1', 'YCT 2', 'YCT 3', 'YCT 4', 'HSK 1', 'HSK 2', 'HSK 3'],
+  'Chinese calligraphy': ['Basic strokes', 'Characters', 'Poems & couplets', 'Exhibition piece'],
+  'Dance grades': ['Pre-primary', 'Primary', 'Grade 1', 'Grade 2', 'Grade 3'],
+  'Speech & drama grades': ['Preparatory', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4'],
+  'Singing & piano grades': ['Prep test', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5'],
+  'Swimming (SwimSafer)': ['Bronze', 'Silver', 'Gold'],
   'Football': ['School team', 'Zonal team', 'National squad', 'International'],
 };
 const EVENT_KINDS = [['contest', 'Contest'], ['exam', 'Exam'], ['performance', 'Performance'], ['school', 'School'], ['other', 'Other']];
@@ -243,7 +250,7 @@ function renderAuth(needsSetup) {
 
     const tag = setup ? 'First time here — set up the parent account.'
       : invitedOnly ? 'Ankur is private.'
-      : kid ? 'Type your name and your secret word to see your journey.' : 'A private place where our children’s journey grows.';
+      : kid ? 'Type your name and your secret word to see your journey.' : 'Extra-curricular tracker — a private place where our children’s journey grows.';
     const invitedNote = h('div', { class: 'note' },
       'Accounts here are by invitation, so strangers can’t sign up. Ask a parent to add you from ', h('strong', null, 'Family → Invite'), ', then come back and sign in.');
 
@@ -295,7 +302,7 @@ async function viewPortfolio(main) {
   const hero = h('section', { class: 'hero' },
     sproutSvg('sprout'),
     h('h1', null, isKid() ? `Hi ${c.nickname || c.name}! 🌟` : c.name),
-    h('p', { class: 'muted' }, isKid() ? 'This is your journey — everything you’ve done and loved.' : [ageText(c.dob), c.bio].filter(Boolean).join(' · ') || 'Every small step, kept safe.'),
+    h('p', { class: 'muted' }, isKid() ? 'This is your journey — everything you’ve done and loved.' : [ageText(c.dob), c.bio].filter(Boolean).join(' · ') || 'Every class, contest and small step — kept safe.'),
     h('div', { class: 'stats' },
       h('span', { class: 'stat' }, h('b', null, entries.length), 'moments'),
       h('span', { class: 'stat' }, h('b', null, entries.reduce((n, e) => n + e.media.length, 0)), 'photos & files'),

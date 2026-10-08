@@ -1,7 +1,7 @@
 {
   "name": "Ankur",
   "short_name": "Ankur",
-  "description": "A private growth portfolio for our children.",
+  "description": "A private growth portfolio and extra-curricular tracker for our children.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fbf7ee",
