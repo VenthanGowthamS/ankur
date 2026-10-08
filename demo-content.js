@@ -7,7 +7,7 @@ const crypto = require('crypto');
 
 const DEMO = path.join(__dirname, 'demo');
 // Bump whenever the sample set changes: apps that already show samples swap in the new set on next start.
-const SAMPLE_VERSION = 3;
+const SAMPLE_VERSION = 4;
 const MIME = { '.png': 'image/png', '.wav': 'audio/wav', '.pdf': 'application/pdf' };
 const find = (f) => ['images', 'media'].map((d) => path.join(DEMO, d, f)).find((p) => fs.existsSync(p));
 
@@ -20,10 +20,10 @@ function day(offset) {
 function addSampleContent(db, uploadsDir, childId, createdBy) {
   db.prepare("INSERT INTO meta (key, value) VALUES ('sample_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(SAMPLE_VERSION));
   const entry = (category, title, offset, notes, ...files) => {
-    let level = null, result = null, subject = null, score = null;
-    if (files.length && typeof files[files.length - 1] === 'object') ({ level = null, result = null, subject = null, score = null } = files.pop());
-    const id = Number(db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, subject, score, created_by, is_sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)')
-      .run(childId, category, title, day(offset), notes, level, result, subject, score, createdBy).lastInsertRowid);
+    let level = null, result = null, subject = null, score = null, role = null;
+    if (files.length && typeof files[files.length - 1] === 'object') ({ level = null, result = null, subject = null, score = null, role = null } = files.pop());
+    const id = Number(db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, subject, score, role, created_by, is_sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)')
+      .run(childId, category, title, day(offset), notes, level, result, subject, score, role, createdBy).lastInsertRowid);
     for (const name of files) {
       const ext = path.extname(name);
       const file = crypto.randomBytes(16).toString('hex') + ext;
@@ -57,7 +57,10 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   entry('coding', 'First Scratch game: Catch the stars', -12, 'Built it herself with sprites, a score counter and a timer. Showed it to the whole family.', { result: 'Block-coding level complete' });
   entry('coding', 'Python turtle drawing', -40, 'Wrote loops to draw a spiral flower. Debugged one indentation error alone.', { result: 'Started Python basics' });
   entry('robotics', 'Line-following robot', -20, 'Built the robot, then programmed it to follow a black line around the track.', 'robot.png', { result: 'Challenge completed' });
-  entry('robotics', 'Robotics showcase day', -52, 'Presented the team’s robot to parents. Explained the sensors without notes.', { level: 'school', result: 'Best team spirit' });
+  entry('robotics', 'Robotics showcase day', -52, 'Presented the team’s robot to parents. Explained the sensors without notes.', { level: 'school', result: 'Best team spirit', role: 'Team presenter' });
+  entry('school', 'Elected class monitor', -10, 'Classmates voted for her at the start of term. Helps the teacher line up the class and hands out worksheets.', { role: 'Class monitor', result: 'Elected by classmates' });
+  entry('community', 'Beach clean-up with class', -45, 'Collected litter along the shore with her class — her Values in Action activity for the term.', { result: 'Certificate of participation' });
+  entry('community', 'Food drive — sorted and labelled donations', -85, 'Helped organise the class food donation drive for a local food bank.', { role: 'Class representative', result: 'Over 200 packs sorted' });
   // Chinese, dance, stage, singing and writing
   entry('chinese', 'Mandarin YCT 2 exam', -18, 'Listening and reading went well. Spoke a short self-introduction in Chinese.', { result: 'YCT 2 passed', score: '168 / 200' });
   entry('chinese', 'Chinese calligraphy — spring couplet', -44, 'Wrote 福 with a brush for Chinese New Year. Practised stroke order every evening.', { level: 'school', result: 'Displayed in the school hall' });
@@ -112,6 +115,7 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   activity('Skating', 'skating', 'Sundays 9am', null);
   activity('Swimming (SwimSafer)', 'swimming', 'Saturdays 8am', 'Swim school');
   activity('Gymnastics', 'gymnastics', 'Wednesdays 6pm', 'Gym club');
+  activity('Values in Action (VIA)', 'community', 'Fortnightly', 'School');
 }
 
 // Removes everything flagged as sample for one child, including uploaded files. Returns the file names to delete.

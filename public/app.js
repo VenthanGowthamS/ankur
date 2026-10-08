@@ -2,7 +2,7 @@
 /* Ankur — a private growth portfolio and extra-curricular tracker. Vanilla JS, no build step.
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
-const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, LADDERS, EVENT_KINDS } = window.ANKUR; // from catalog.js
+const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS } = window.ANKUR; // from catalog.js
 const subjectLabel = (k) => (SUBJECTS.find((x) => x[0] === k) || [, k])[1];
 const levelLabel = (k) => (LEVELS.find((x) => x[0] === k) || [, k])[1];
 const groupOf = (cat) => (CATS[cat] || CATS.other)[2];
@@ -334,7 +334,8 @@ function buildEntry(e, c, emoji, label) {
         h('span', { class: 'badge' }, `${emoji} ${label}`),
         h('h3', null, e.title),
         h('div', { class: 'when' }, fmtDate(e.date)),
-        (e.level || e.result || e.subject || e.score) && h('div', { class: 'wins' },
+        (e.level || e.result || e.subject || e.score || e.role) && h('div', { class: 'wins' },
+          e.role && h('span', { class: 'win role' }, `👑 ${e.role}`),
           e.subject && h('span', { class: 'win subject' }, subjectLabel(e.subject)),
           e.score && h('span', { class: 'win score' }, `📝 ${scoreText(e)}`),
           e.result && h('span', { class: 'win result' }, `🏅 ${e.result}`),
@@ -386,17 +387,19 @@ function entryForm(c, entry) {
       { name: 'score', label: 'Score', max: 40, hint: 'Marks out of total, e.g. 52 / 60 — the percentage is worked out for you' },
       { name: 'level', label: 'Level of the event', type: 'select', options: [['', '— not a competition —'], ...LEVELS] },
       { name: 'result', label: 'Result — medal, rank, belt, badge', max: 120, hint: 'e.g. Gold medal · Zonal rank 9 · Honourable mention · Yellow belt' },
+      { name: 'role', label: 'Role — if she led or organised it', max: 60, list: 'role-names', hint: 'e.g. Team captain, Class monitor, Club leader, MUN delegate — leave blank if she just took part' },
       { name: 'notes', label: 'Notes — scores, feedback, how it felt', type: 'textarea', max: 5000 },
       { name: 'files', label: editing ? 'Add more photos, recordings or PDFs' : 'Photos, recordings, videos or PDFs', type: 'files', hint: 'Up to 8 files, 80 MB each.' },
     ],
-    extra: [h('datalist', { id: 'olympiad-names' }, OLYMPIADS.map((o) => h('option', { value: o }))), existing],
+    extra: [h('datalist', { id: 'olympiad-names' }, OLYMPIADS.map((o) => h('option', { value: o }))),
+      h('datalist', { id: 'role-names' }, ROLES.map((r) => h('option', { value: r }))), existing],
     onSubmit: async ({ values, files }) => {
       if (editing) {
-        await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes, level: values.level, result: values.result, subject: values.subject, score: values.score });
+        await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes, level: values.level, result: values.result, subject: values.subject, score: values.score, role: values.role });
         if (files.length) { const fd = new FormData(); files.forEach((f) => fd.append('files', f)); await api('POST', `/api/entries/${entry.id}/media`, fd); }
       } else {
         const fd = new FormData();
-        ['title', 'category', 'date', 'notes', 'level', 'result', 'subject', 'score'].forEach((k) => fd.set(k, values[k]));
+        ['title', 'category', 'date', 'notes', 'level', 'result', 'subject', 'score', 'role'].forEach((k) => fd.set(k, values[k]));
         files.forEach((f) => fd.append('files', f));
         await api('POST', `/api/children/${c.id}/entries`, fd);
       }
@@ -463,6 +466,7 @@ function bookPages(c, entries, ladder, activities, opts) {
   const dates = entries.map((e) => e.date).sort();
   const range = dates.length ? `${fmtDate(opts.from || dates[0])} – ${fmtDate(opts.to || dates[dates.length - 1])}` : 'No moments in this range';
   const wins = entries.filter((e) => e.result || e.level);
+  const roles = entries.filter((e) => e.role).sort((a, b) => b.date.localeCompare(a.date));
   const olympiads = entries.filter((e) => e.category === 'olympiad');
   const passed = ladder.filter((l) => l.status === 'passed');
   const areas = new Set(entries.map((e) => e.category));
@@ -490,6 +494,13 @@ function bookPages(c, entries, ladder, activities, opts) {
     const top = [...wins].sort((a, b) => (LEVEL_RANK[b.level] || 0) - (LEVEL_RANK[a.level] || 0) || b.date.localeCompare(a.date)).slice(0, 15);
     pages.push(h('section', { class: 'b-sec' }, h('h2', null, '🏆 Highlights'),
       table(['Date', 'Area', 'What', 'Level', 'Result'], top.map((e) => [fmtDate(e.date), `${CATS[e.category]?.[0] || ''} ${CATS[e.category]?.[1] || ''}`, e.title, e.level ? levelLabel(e.level) : '', e.result]))));
+  }
+
+  // Leadership & responsibility: every moment where she led, organised or represented others —
+  // the single thing both US (Common App) and UK (UCAS) admissions, and schools here, weigh most.
+  if (roles.length) {
+    pages.push(h('section', { class: 'b-sec' }, h('h2', null, '👑 Leadership & responsibility'),
+      table(['Date', 'Area', 'Role', 'What'], roles.map((e) => [fmtDate(e.date), `${CATS[e.category]?.[0] || ''} ${CATS[e.category]?.[1] || ''}`, e.role, e.title]))));
   }
 
   // Olympiad record, by subject, with best and average percentage
@@ -534,8 +545,8 @@ function bookPages(c, entries, ladder, activities, opts) {
             h('div', { class: 'b-when' }, fmtDate(e.date)),
             h('div', { class: 'b-body' },
               h('h4', null, e.title),
-              (e.result || e.level || e.score || e.subject) && h('div', { class: 'b-badges' },
-                [e.subject && subjectLabel(e.subject), e.score && `📝 ${scoreText(e)}`, e.result && `🏅 ${e.result}`, e.level && levelLabel(e.level)].filter(Boolean).map((t) => h('span', null, t))),
+              (e.result || e.level || e.score || e.subject || e.role) && h('div', { class: 'b-badges' },
+                [e.role && `👑 ${e.role}`, e.subject && subjectLabel(e.subject), e.score && `📝 ${scoreText(e)}`, e.result && `🏅 ${e.result}`, e.level && levelLabel(e.level)].filter(Boolean).map((t) => h('span', null, t))),
               opts.notes && e.notes && h('p', null, e.notes),
               imgs.length > 0 && h('div', { class: 'b-photos' }, imgs.map((m) => h('img', { src: `/media/${m.id}`, alt: m.original || '' }))),
               extras > 0 && h('div', { class: 'b-more' }, `+ ${extras} recording${extras > 1 ? 's' : ''} or document${extras > 1 ? 's' : ''} kept in Ankur`)));
@@ -549,13 +560,15 @@ function bookPages(c, entries, ladder, activities, opts) {
 async function viewDashboard(main) {
   const c = child();
   if (!c) return main.replaceChildren(h('div', { class: 'empty' }, 'Add a child first, from the Family tab.'));
-  const [sum, events, activities, ladder, olympiads] = await Promise.all([
+  const [sum, events, activities, ladder, olympiads, allEntries] = await Promise.all([
     api('GET', `/api/children/${c.id}/summary`),
     api('GET', `/api/children/${c.id}/events`),
     api('GET', `/api/children/${c.id}/activities`),
     api('GET', `/api/children/${c.id}/ladder`),
     api('GET', `/api/children/${c.id}/entries?category=olympiad`),
+    api('GET', `/api/children/${c.id}/entries`),
   ]);
+  const roles = allEntries.filter((e) => e.role).sort((a, b) => b.date.localeCompare(a.date));
   const tile = (n, label) => h('div', { class: 'card tile' }, h('b', null, n), h('span', null, label));
   const tiles = h('div', { class: 'tiles' },
     tile(sum.entries, 'moments saved'), tile(sum.activeActivities, 'active activities'),
@@ -601,6 +614,11 @@ async function viewDashboard(main) {
       h('div', { class: 'main' }, h('div', { class: 'title' }, r.title), h('div', { class: 'small muted' }, [fmtDate(r.date), r.result].filter(Boolean).join(' · '))),
       h('b', { class: 'pts' }, scoreText(r) || '—')))));
 
+  const roleRow = (e) => h('div', { class: 'card item', 'data-cat': e.category },
+    h('span', { class: 'badge' }, (CATS[e.category] || CATS.other)[0]),
+    h('div', { class: 'main' }, h('div', { class: 'title' }, e.role), h('div', { class: 'small muted' }, [fmtDate(e.date), e.title].filter(Boolean).join(' · '))),
+    h('button', { class: 'btn small ghost', 'aria-label': `Edit ${e.title}`, onclick: () => entryForm(c, e) }, 'Edit'));
+
   const sec = (title, addLabel, onAdd, content, extra) => [
     h('div', { class: 'section-head' }, h('h2', null, title), h('div', { class: 'row' }, extra, h('button', { class: 'btn small', onclick: onAdd }, addLabel))), content];
   const emptyBox = (t) => h('div', { class: 'empty' }, t);
@@ -610,6 +628,9 @@ async function viewDashboard(main) {
     ...sec('Coming up', '＋ Event', () => eventForm(c), upcoming.length ? h('div', { class: 'list' }, upcoming.map(eventRow)) : emptyBox('No contests or exams planned. Add the next one.')),
     ...(past.length ? [h('div', { class: 'month' }, 'Recently done'), h('div', { class: 'list' }, past.map(eventRow))] : []),
     ...sec('Activities', '＋ Activity', () => activityForm(c), activities.length ? h('div', { class: 'list' }, activities.map(actRow)) : emptyBox('Hindi tuition, art class, Toastmasters youth… add them here.')),
+    ...(roles.length ? [h('div', { class: 'section-head' }, h('h2', null, '👑 Leadership & responsibility')),
+      h('p', { class: 'muted small lead-in' }, 'What universities and schools weigh most — not just taking part.'),
+      h('div', { class: 'list' }, roles.map(roleRow))] : []),
     ...(olympiads.length ? [h('div', { class: 'section-head' }, h('h2', null, 'Olympiad scores')), h('div', { class: 'list' }, [...bySubject].map(([k, r]) => scoreCard(k, r)))] : []),
     ...sec('Ladders & levels', '＋ Level', () => ladderForm(c, null, ladder), tracks.size ? h('div', { class: 'list' }, [...tracks].map(([t, s]) => ladderCard(t, s))) : emptyBox('Exam levels, belts, olympiad rounds — add a ladder to track progress.'),
       h('button', { class: 'btn small', onclick: () => ladderTemplateForm(c, tracks) }, '＋ Ladder')));

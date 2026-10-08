@@ -146,6 +146,7 @@ function openDb(dataDir) {
   ensureColumn(db, 'entries', 'result', 'TEXT');
   ensureColumn(db, 'entries', 'subject', 'TEXT');
   ensureColumn(db, 'entries', 'score', 'TEXT');
+  ensureColumn(db, 'entries', 'role', 'TEXT'); // leadership/responsibility, e.g. Team captain, Class monitor
   ensureColumn(db, 'children', 'buddy_id', 'INTEGER'); // the Buddy picture this child chose; NULL = Ankur the sprout
   return db;
 }

@@ -115,6 +115,7 @@ a { color: var(--leaf-d); }
 [data-cat="writing"] { --c: #8a6a3a; }
 [data-cat="swimming"] { --c: #1b86b8; }
 [data-cat="gymnastics"] { --c: #c0569e; }
+[data-cat="community"] { --c: #2e8b57; }
 .badge {
   display: inline-flex; align-items: center; gap: 4px; font-size: .78rem; font-weight: 600; padding: 2px 10px;
   border-radius: 999px; color: var(--c, var(--muted));
@@ -389,3 +390,4 @@ label.field { display: grid; gap: 4px; font-size: .88rem; color: var(--muted); }
 .buddy-card { display: grid; justify-items: center; gap: 4px; text-align: center; padding: 12px 8px; }
 .buddy-card img, .buddy-card svg { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; }
 .buddy-card.on { outline: 2px solid var(--leaf); }
+.lead-in { margin: -4px 0 8px; }

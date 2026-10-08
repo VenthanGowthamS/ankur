@@ -58,3 +58,24 @@ Kids get their own view-only login (`child` role), fenced to their own profile a
 - **Parents don't see Buddy.** It is a kid-only feature.
 - **No free-text chat with a child (yet).** Buddy is scripted: it reads a handful of safe facts (counts, latest moment, next event, last exam passed) and answers tap-only prompts. It can't say anything unexpected, and a child can't type anything into it.
 - If we later connect a real AI model, it comes with guardrails first: fixed persona, no personal-data collection, no external links, parent-visible transcripts, and an off switch.
+
+## Does this actually help with university applications?
+
+She's 7. Applications are a decade away. But the gap between "a pile of certificates in a drawer" and "a strong application" is mostly **what got written down at the time** — so the fields Ankur asks for today decide what's usable then. We checked what real admissions processes actually weigh, rather than guessing:
+
+- **US (Common Application):** the Activities section groups everything into one of ~27 fixed categories (Academic, Athletics, Community Service, Robotics, Debate/Speech, Student Government, and so on), and officers say they prioritise **depth over breadth** — 3–4 sustained activities beat a long thin list — and weigh **leadership and impact**, not membership. A formal title isn't required, but initiative is. ([College Essay Guy](https://collegeessayguy.com/blog/extracurricular-activities-guide), [Spark Admissions](https://www.sparkadmissions.com/blog/best-extracurriculars-for-ivy-league))
+- **UK (UCAS):** the personal statement cares less about extracurriculars and more about **"super-curricular"** activity — subject-specific depth (reading beyond the syllabus, olympiads, relevant work experience) — and what a student can say about what they learned from it. ([Times Higher Education](https://www.timeshighereducation.com/counsellor/admissions-processes-and-funding/what-are-supercurricular-activities-and-why-do-they))
+- **Locally:** Singapore MOE schools run **Values in Action (VIA)** as the community-service component of CCA, and GIIS Singapore (a common choice for expat families here) has a named student-leadership track — Head Boy/Girl, House Captain, Prefect, Student Council, club leadership, MUN. ([MOE school VIA pages](https://rivervalleypri.moe.edu.sg/rv-curriculum/cce/values-in-action/), [GIIS leadership opportunities](https://globalindianschool.org/sg/leadership-opportunities-for-giis-secondary-students/))
+
+What that means Ankur needed, and now has:
+
+| What admissions actually weigh | What we added |
+| --- | --- |
+| Leadership / responsibility, not just participation | A **role** field on any moment (Team captain, Class monitor, Club leader, MUN delegate, …), with suggestions drawn from how US/UK admissions and GIIS/MOE actually name these roles. Shown as a 👑 badge, and pulled into its own "Leadership & responsibility" section on the dashboard and in the PDF portfolio. |
+| Community Service as its own tracked area | A new **Community (VIA)** category — named to match what Singapore schools actually call it, so it reads as familiar to a local school, not invented. |
+| Depth over years, in one place | Already Ankur's core design — the timeline and PDF group everything by area and show when it started, not just a final result. |
+| Subject-specific depth (UK super-curricular) | Already covered — exams and olympiads already carry a subject, a score/percentage, and a notes field for what she learned, which is exactly what the UCAS guidance says to capture. |
+
+What we deliberately **didn't** do: import all 27 Common App categories (most — Junior ROTC, religious clubs, paid work — don't apply to a 7-year-old and would just clutter the app), or build an hours-tracker (the research is consistent that depth and impact matter more than hours logged).
+
+This doesn't make Ankur an admissions product — it's still a family record. It just means the record being built now won't need to be reconstructed from memory in ten years.

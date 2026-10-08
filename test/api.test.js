@@ -278,7 +278,7 @@ test('achievements carry a level and a result; new areas are accepted', async ()
   assert.equal(ok.status, 201);
   assert.equal(ok.json.level, 'zonal');
   assert.equal(ok.json.result, 'Runner-up');
-  for (const category of ['olympiad', 'martial', 'skating', 'chinese', 'dance', 'stage', 'singing', 'writing', 'gymnastics', 'swimming']) {
+  for (const category of ['olympiad', 'martial', 'skating', 'chinese', 'dance', 'stage', 'singing', 'writing', 'gymnastics', 'swimming', 'community']) {
     assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category }) })).status, 201, category);
   }
   assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'sports', level: 'galaxy' }) })).status, 400, 'unknown level');
@@ -288,6 +288,9 @@ test('achievements carry a level and a result; new areas are accepted', async ()
   assert.equal(oly.json.score, '52 / 60');
   assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'olympiad', subject: 'astrology' }) })).status, 400, 'unknown subject');
   assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'sports', date: '2026-02-30' }) })).status, 400, 'impossible date');
+  const led = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'school', role: 'Class monitor' }) });
+  assert.equal(led.status, 201);
+  assert.equal(led.json.role, 'Class monitor');
   const edited = await call('PUT', `/api/entries/${ok.json.id}`, { cookie: parentCookie, body: { level: '', result: 'Champion' } });
   assert.equal(edited.json.level, null, 'level can be cleared');
   assert.equal(edited.json.result, 'Champion');

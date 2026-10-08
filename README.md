@@ -11,8 +11,10 @@ A private growth portfolio, **extra-curricular tracker** and parent dashboard fo
 - **Portfolio journey** — a timeline of moments with notes, photos, voice/speech recordings, videos and PDFs, organised in tabs:
   - 📚 **Study** — Exams, Olympiads (subject, score and percentage; SASMO, SEAMO, ICAS, Math Kangaroo, SOF suggestions), Chinese, Hindi, Writing, Coding, Robotics
   - 🏅 **Sports** — Sports & games, Swimming, Gymnastics, Martial arts, Skating
-  - 🎨 **Arts & stage** — Art, Dance, Singing & music, Drama & stage, Speech
-  - ⭐ **Awards & school** — Accolades, School, Other
+  - 🎨 **Arts & stage** — Art, Dance, Singing & music, Drama & stage, Speech & debate
+  - ⭐ **Awards & school** — Community (VIA), Accolades, School, Other
+
+  Any moment can also carry a **role** — Team captain, Class monitor, Club leader, MUN delegate — tracked separately from just taking part, because that's what universities (and GIIS/MOE's own leadership tracks) actually weigh. See [docs/WHY.md](docs/WHY.md#does-this-actually-help-with-university-applications) for what that's based on.
 
   Each achievement can carry a level (school, zonal, national, international) and a result (medal, rank, belt).
 - **PDF portfolio** — one tap builds an A4 book: cover, highlights (biggest stage first), olympiad record with best and average % per subject, levels and belts, current classes, then every moment with photos. Filter by tab and dates, then *Save as PDF*. It uses the browser's print engine, so Hindi, Chinese and emoji come out right.

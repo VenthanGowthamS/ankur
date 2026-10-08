@@ -30,8 +30,9 @@
     dance: ['💃', 'Dance', 'arts'],
     singing: ['🎵', 'Singing & music', 'arts'],
     stage: ['🎭', 'Drama & stage', 'arts'],
-    speech: ['🎤', 'Speech', 'arts'],
+    speech: ['🎤', 'Speech & debate', 'arts'],
     accolade: ['🏅', 'Accolades', 'awards'],
+    community: ['🤝', 'Community (VIA)', 'awards'],
     school: ['🏫', 'School', 'awards'],
     other: ['✨', 'Other', 'awards'],
   };
@@ -52,6 +53,16 @@
     'SOF NSO — National Science Olympiad',
     'SOF NCO — National Cyber Olympiad',
     'SOF IGKO — International General Knowledge Olympiad',
+  ];
+
+  // Suggested roles for the "role" field on a moment -- leadership and responsibility, not just taking part.
+  // Based on how US (Common App) and UK (UCAS) admissions, and Singapore schools (MOE, GIIS), actually describe this.
+  const ROLES = [
+    'Participant', 'Team member', 'Team captain', 'Vice-captain',
+    'Class monitor', 'Class representative', 'Prefect', 'House captain', 'Head boy', 'Head girl',
+    'Club member', 'Club leader / president', 'Event organiser',
+    'Student council member', 'Student council leader',
+    'MUN delegate', 'MUN chair', 'Volunteer', 'Volunteer coordinator',
   ];
 
   // Ready-made ladders for the dashboard. Every step can be renamed or edited after adding.
@@ -76,7 +87,7 @@
 
   const EVENT_KINDS = [['contest', 'Contest'], ['exam', 'Exam'], ['performance', 'Performance'], ['school', 'School'], ['other', 'Other']];
 
-  const catalog = Object.freeze({ GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, LADDERS, EVENT_KINDS });
+  const catalog = Object.freeze({ GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS });
   if (typeof module === 'object' && module.exports) module.exports = catalog;
   else root.ANKUR = catalog;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

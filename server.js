@@ -88,6 +88,7 @@ const ENTRY_FIELDS = {
   result: { type: 'str', max: 120 },
   subject: { type: 'enum', values: SUBJECTS },
   score: { type: 'str', max: 40 },
+  role: { type: 'str', max: 60 },
 };
 
 const CHILD_FIELDS = {
@@ -406,8 +407,8 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     try {
       const v = parseFields(ENTRY_FIELDS, req.body);
       const id = tx(db, () => {
-        const r = db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, subject, score, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(req.child.id, v.category, v.title, v.date, v.notes ?? null, v.level ?? null, v.result ?? null, v.subject ?? null, v.score ?? null, req.user.id);
+        const r = db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, subject, score, role, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          .run(req.child.id, v.category, v.title, v.date, v.notes ?? null, v.level ?? null, v.result ?? null, v.subject ?? null, v.score ?? null, v.role ?? null, req.user.id);
         saveMedia(Number(r.lastInsertRowid), req.files);
         return Number(r.lastInsertRowid);
       });
