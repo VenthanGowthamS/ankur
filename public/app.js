@@ -167,14 +167,16 @@ async function boot() {
   }
 }
 
-function renderAuth(setup) {
+function renderAuth(needsSetup) {
   let kid = false;
-  if (!setup) { try { kid = localStorage.getItem('ankur_login_kid') === '1'; } catch { /* private mode: fine */ } }
+  let creating = needsSetup; // a fresh install opens on "Create account"; otherwise on "Sign in"
+  if (!needsSetup) { try { kid = localStorage.getItem('ankur_login_kid') === '1'; } catch { /* private mode: fine */ } }
 
   const draw = () => {
+    const setup = creating && needsSetup && !kid;       // the one-time first-parent form
+    const invitedOnly = creating && !needsSetup && !kid; // accounts already exist: new people are invited
     const err = h('div', { class: 'error', role: 'alert' });
     const field = (label, name, type = 'text', extra = {}) => h('label', { class: 'field' }, label, h('input', { name, type, required: true, ...extra }));
-    const secret = kid ? field('Your secret word', 'password', 'password', { autocomplete: 'current-password' }) : null;
     const form = h('form', {
       class: 'fields',
       onsubmit: async (e) => {
@@ -186,7 +188,8 @@ function renderAuth(setup) {
           state.view = 'portfolio'; state.filter = 'all'; state.previewKid = false;
           await boot();
         } catch (ex) {
-          err.textContent = kid && /wrong|password/i.test(ex.message) ? 'Oops! That name or secret word doesn’t match. Try again 🙂' : ex.message;
+          err.textContent = kid && /wrong|password/i.test(ex.message) ? 'Oops! That name or secret word doesn’t match. Try again 🙂'
+            : needsSetup && !setup && /wrong/i.test(ex.message) ? 'No accounts exist yet — tap “Create account” below to make the first one.' : ex.message;
         }
       },
     },
@@ -194,7 +197,8 @@ function renderAuth(setup) {
     kid
       ? field('Your name', 'email', 'text', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', placeholder: 'the name your parents gave you here' })
       : setup ? field('Email', 'email', 'email', { autocomplete: 'username' }) : field('Email or username', 'email', 'text', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' }),
-    kid ? secret : field(setup ? 'Choose a password (8+ characters)' : 'Password', 'password', 'password', { autocomplete: setup ? 'new-password' : 'current-password', minlength: setup ? 8 : 1 }),
+    kid ? field('Your secret word', 'password', 'password', { autocomplete: 'current-password' })
+      : field(setup ? 'Choose a password (8+ characters)' : 'Password', 'password', 'password', { autocomplete: setup ? 'new-password' : 'current-password', minlength: setup ? 8 : 1 }),
     kid && h('label', { class: 'field check' }, h('input', { type: 'checkbox', onchange: (e) => { form.elements.password.type = e.target.checked ? 'text' : 'password'; } }), 'Show my secret word'),
     setup && field('Child’s name', 'childName'),
     setup && h('label', { class: 'field' }, 'Child’s date of birth (optional)', h('input', { name: 'childDob', type: 'date' })),
@@ -203,20 +207,31 @@ function renderAuth(setup) {
 
     const setMode = (v) => {
       kid = v;
+      if (v) creating = false;
       try { localStorage.setItem('ankur_login_kid', v ? '1' : '0'); } catch { /* ignore */ }
       draw();
     };
-    const modeSwitch = !setup && h('div', { class: 'seg', role: 'group', 'aria-label': 'Who is signing in?' },
+    const modeSwitch = !needsSetup && h('div', { class: 'seg', role: 'group', 'aria-label': 'Who is signing in?' },
       h('button', { type: 'button', class: 'seg-btn', 'aria-pressed': String(!kid), onclick: () => setMode(false) }, '🧑 Grown-up'),
       h('button', { type: 'button', class: 'seg-btn', 'aria-pressed': String(kid), onclick: () => setMode(true) }, '🧒 I’m a kid'));
+
+    // Sign in / Create account, both always one tap away for grown-ups.
+    const swap = !kid && h('p', { class: 'swap' }, creating ? 'Already have an account? ' : 'New here? ',
+      h('button', { type: 'button', class: 'link', onclick: () => { creating = !creating; draw(); } }, creating ? 'Sign in' : 'Create account'));
+
+    const tag = setup ? 'First time here — set up the parent account.'
+      : invitedOnly ? 'Ankur is private.'
+      : kid ? 'Type your name and your secret word to see your journey.' : 'A private place where our children’s journey grows.';
+    const invitedNote = h('div', { class: 'note' },
+      'Accounts here are by invitation, so strangers can’t sign up. Ask a parent to add you from ', h('strong', null, 'Family → Invite'), ', then come back and sign in.');
 
     root().replaceChildren(h('main', { class: `auth${kid ? ' kid-login' : ''}` }, h('div', { class: 'card' },
       modeSwitch,
       kid ? buddyFace('logo kid-logo') : sproutSvg('logo'),
       h('h1', null, kid ? 'Hi there! 👋' : 'Ankur'),
-      h('p', { class: 'tag' }, setup ? 'First time here — set up the parent account.'
-        : kid ? 'Type your name and your secret word to see your journey.' : 'A private place where our children’s journey grows.'),
-      form)));
+      h('p', { class: 'tag' }, tag),
+      invitedOnly ? invitedNote : form,
+      swap)));
     form.querySelector('input')?.focus();
   };
   draw();
