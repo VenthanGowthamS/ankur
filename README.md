@@ -7,10 +7,21 @@ A private growth portfolio and parent dashboard for our children — art, speech
 ## What's in the MVP
 
 - **Private by design** — login only. Nothing is public, uploads are served only to signed-in users, pages are `noindex`.
-- **Two roles** — *Parent* (add/edit everything) and *Family* (view the portfolio only).
+- **Three roles** — *Parent* (add/edit everything), *Family* (view the portfolio only) and *Child* (view their own journey, with Buddy).
 - **Portfolio journey** — a timeline of moments with notes, photos, voice/speech recordings, videos and PDFs. Filter by Art, Speech, Exams, Hindi, Accolades, School.
 - **Parent dashboard** — upcoming contests & exams, activities (Hindi tuition, art class, …) and an **exam ladder** (Cambridge Starters → Movers → Flyers → KET → PET pre-seeded; add any track).
+- **Kid login + Buddy** — each child can have a view-only login (fenced to their own profile) with a friendly, tappable sprout buddy. Parents don't see it. See [docs/WHY.md](docs/WHY.md).
 - **Multi-child ready**, installable on a phone (PWA), light/dark mode.
+
+## Screens (sample data)
+
+| Parent — portfolio | Parent — dashboard | Kid login | Kid — Buddy |
+| --- | --- | --- | --- |
+| <img src="docs/screenshots/parent-portfolio.png" width="180"> | <img src="docs/screenshots/parent-dashboard.png" width="180"> | <img src="docs/screenshots/kid-home.png" width="180"> | <img src="docs/screenshots/kid-buddy.png" width="180"> |
+
+## Why this exists
+
+Capture, not generation: AI can make a PDF in a minute, but only from what was saved at the time. Read [docs/WHY.md](docs/WHY.md) for the problem, why it is deliberately *not* blockchain, honest weaknesses, and how we'll test whether it's worth keeping.
 
 ## Run it
 
@@ -22,7 +33,7 @@ npm start            # http://localhost:3000
 npm test             # API tests
 ```
 
-On first visit you'll be asked to create the parent account and the first child. After that, invite family from **Family → Invite**.
+On first visit you'll be asked to create the parent account and the first child. After that, invite family — or create the child's own login (a simple username + short password) — from **Family → Invite**.
 
 | Env var | Purpose |
 | --- | --- |

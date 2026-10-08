@@ -174,7 +174,7 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     req.user = null;
     if (token) {
       const row = db.prepare(
-        `SELECT u.id, u.name, u.email, u.role FROM sessions s JOIN users u ON u.id = s.user_id
+        `SELECT u.id, u.name, u.email, u.role, u.child_id FROM sessions s JOIN users u ON u.id = s.user_id
          WHERE s.token_hash = ? AND s.expires_at > ?`
       ).get(sha256(token), Date.now());
       if (row) req.user = { ...row };
@@ -240,7 +240,7 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     if (!user || !ok) { rec.count++; throw new HttpError(401, 'Wrong email or password'); }
     attempts.delete(req.ip);
     startSession(res, user.id);
-    res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+    res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, child_id: user.child_id } });
   });
 
   app.post('/api/logout', (req, res) => { endSession(req, res); res.json({ ok: true }); });
@@ -256,15 +256,27 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
 
   // ---- family accounts (parents manage who can view)
   app.get('/api/users', requireParent, (req, res) => {
-    res.json(db.prepare('SELECT id, name, email, role, created_at FROM users ORDER BY id').all());
+    res.json(db.prepare('SELECT id, name, email, role, child_id, created_at FROM users ORDER BY id').all());
   });
   app.post('/api/users', requireParent, (req, res) => {
-    const { name, email } = checkCreds(req.body);
-    const role = req.body.role === 'parent' ? 'parent' : 'family';
-    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'That email already has an account');
-    const r = db.prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)')
-      .run(name, email, bcrypt.hashSync(req.body.password, 10), role);
-    res.status(201).json({ id: Number(r.lastInsertRowid), name, email, role });
+    const role = ['parent', 'family', 'child'].includes(req.body.role) ? req.body.role : 'family';
+    let name, email, childId = null;
+    if (role === 'child') {
+      // Kids sign in with a simple username and a short password set by a parent.
+      name = String(req.body.name || '').trim();
+      email = String(req.body.email || '').trim().toLowerCase();
+      if (!name || name.length > 80) throw new HttpError(400, 'Name is required');
+      if (!/^[a-z0-9._-]{3,30}$/.test(email)) throw new HttpError(400, 'Username: 3–30 letters or numbers, no spaces');
+      if (typeof req.body.password !== 'string' || req.body.password.length < 6) throw new HttpError(400, 'Password must be at least 6 characters');
+      childId = Number(req.body.childId);
+      if (!getChild(childId)) throw new HttpError(400, 'Choose which child this login is for');
+    } else {
+      ({ name, email } = checkCreds(req.body));
+    }
+    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) throw new HttpError(409, 'That email or username is already taken');
+    const r = db.prepare('INSERT INTO users (name, email, password_hash, role, child_id) VALUES (?, ?, ?, ?, ?)')
+      .run(name, email, bcrypt.hashSync(req.body.password, 10), role, childId);
+    res.status(201).json({ id: Number(r.lastInsertRowid), name, email, role, child_id: childId });
   });
   app.delete('/api/users/:id', requireParent, (req, res) => {
     const id = Number(req.params.id);
@@ -278,10 +290,12 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
   function childParam(req, res, next) {
     const child = getChild(req.params.cid);
     if (!child) return next(new HttpError(404, 'Child not found'));
+    if (req.user && req.user.role === 'child' && req.user.child_id !== child.id) return next(new HttpError(403, 'Not your profile'));
     req.child = child;
     next();
   }
   app.get('/api/children', requireAuth, (req, res) => {
+    if (req.user.role === 'child') return res.json(db.prepare('SELECT * FROM children WHERE id = ?').all(req.user.child_id));
     res.json(db.prepare('SELECT * FROM children ORDER BY id').all());
   });
   app.post('/api/children', requireParent, (req, res) => {
@@ -399,6 +413,10 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
   app.get('/media/:id', requireAuth, (req, res, next) => {
     const m = db.prepare('SELECT * FROM media WHERE id = ?').get(Number(req.params.id));
     if (!m) return next(new HttpError(404, 'File not found'));
+    if (req.user.role === 'child') {
+      const owner = db.prepare('SELECT child_id FROM entries WHERE id = ?').get(m.entry_id);
+      if (!owner || owner.child_id !== req.user.child_id) return next(new HttpError(403, 'Not your file'));
+    }
     res.setHeader('Content-Type', m.mime);
     res.setHeader('Cache-Control', 'private, max-age=86400');
     res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(m.original || 'file')}`);
@@ -428,6 +446,28 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
       res.json({ ok: true });
     });
   }
+
+  // ---- Buddy: a few safe, read-only facts the kid-mode helper talks about. No free text in or out.
+  app.get('/api/children/:cid/buddy', requireAuth, childParam, (req, res) => {
+    const cid = req.child.id;
+    const withThumb = (e) => {
+      if (!e) return null;
+      const m = db.prepare("SELECT id FROM media WHERE entry_id = ? AND mime LIKE 'image/%' ORDER BY id LIMIT 1").get(e.id);
+      return { id: e.id, title: e.title, category: e.category, date: e.date, imageId: m ? m.id : null };
+    };
+    const counts = {};
+    for (const r of db.prepare('SELECT category, COUNT(*) AS n FROM entries WHERE child_id = ? GROUP BY category').all(cid)) counts[r.category] = r.n;
+    const today = new Date().toISOString().slice(0, 10);
+    res.json({
+      name: req.child.nickname || req.child.name,
+      total: Object.values(counts).reduce((a, b) => a + b, 0),
+      counts,
+      latest: withThumb(db.prepare('SELECT * FROM entries WHERE child_id = ? ORDER BY date DESC, id DESC LIMIT 1').get(cid)),
+      remember: withThumb(db.prepare('SELECT * FROM entries WHERE child_id = ? ORDER BY RANDOM() LIMIT 1').get(cid)),
+      nextEvent: db.prepare("SELECT title, date, kind FROM events WHERE child_id = ? AND status = 'upcoming' AND date >= ? ORDER BY date LIMIT 1").get(cid, today) || null,
+      lastPassed: db.prepare("SELECT track, level, score FROM ladder WHERE child_id = ? AND status = 'passed' ORDER BY (date IS NULL), date DESC, id DESC LIMIT 1").get(cid) || null,
+    });
+  });
 
   // ---- dashboard summary
   app.get('/api/children/:cid/summary', requireParent, childParam, (req, res) => {

@@ -140,3 +140,50 @@ test('private-app headers and logout', async () => {
   await call('POST', '/api/logout', { cookie: familyCookie });
   assert.equal((await call('GET', '/api/children', { cookie: familyCookie })).status, 401);
 });
+
+test('kid accounts: own profile only, read-only, Buddy facts, no parent areas', async () => {
+  // a sibling, with a private photo the first child's login must never see
+  const sib = await call('POST', '/api/children', { cookie: parentCookie, body: { name: 'Little One' } });
+  assert.equal(sib.status, 201);
+  const form = new FormData();
+  form.set('title', 'Sibling drawing'); form.set('category', 'art'); form.set('date', '2026-10-01');
+  form.append('files', new Blob(['sibling-bytes'], { type: 'image/png' }), 's.png');
+  const sibEntry = await call('POST', `/api/children/${sib.json.id}/entries`, { cookie: parentCookie, form });
+  const sibMedia = sibEntry.json.media[0].id;
+
+  const mine = new FormData();
+  mine.set('title', 'Stage speech'); mine.set('category', 'speech'); mine.set('date', '2026-10-05');
+  mine.append('files', new Blob(['mine'], { type: 'image/png' }), 'm.png');
+  const mineEntry = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mine });
+
+  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Roshna', email: 'Ro shna', password: 'sprout1', role: 'child', childId: 1 } })).status, 400, 'bad username');
+  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Roshna', email: 'roshna', password: 'abc', role: 'child', childId: 1 } })).status, 400, 'short password');
+  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Roshna', email: 'roshna', password: 'sprout1', role: 'child' } })).status, 400, 'needs a child');
+  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Roshna', email: 'roshna', password: 'sprout1', role: 'child', childId: 1 } })).status, 201);
+
+  const login = await call('POST', '/api/login', { body: { email: 'Roshna', password: 'sprout1' } });
+  assert.equal(login.status, 200);
+  assert.equal(login.json.user.role, 'child');
+  const kid = cookieOf(login.res);
+
+  const kids = await call('GET', '/api/children', { cookie: kid });
+  assert.deepEqual(kids.json.map((c) => c.id), [1]);
+  assert.equal((await call('GET', `/api/children/${sib.json.id}/entries`, { cookie: kid })).status, 403);
+  assert.equal((await call('GET', `/api/children/${sib.json.id}/buddy`, { cookie: kid })).status, 403);
+  assert.equal((await call('GET', `/media/${sibMedia}`, { cookie: kid })).status, 403, "sibling's photo is fenced off");
+  assert.equal((await call('GET', `/media/${mineEntry.json.media[0].id}`, { cookie: kid })).status, 200);
+
+  const f = new FormData(); f.set('title', 'x'); f.set('category', 'art'); f.set('date', '2026-01-01');
+  assert.equal((await call('POST', '/api/children/1/entries', { cookie: kid, form: f })).status, 403);
+  assert.equal((await call('DELETE', `/api/entries/${mineEntry.json.id}`, { cookie: kid })).status, 403);
+  for (const p of ['activities', 'events', 'ladder', 'summary']) {
+    assert.equal((await call('GET', `/api/children/1/${p}`, { cookie: kid })).status, 403, p);
+  }
+  assert.equal((await call('GET', '/api/users', { cookie: kid })).status, 403);
+
+  const buddy = await call('GET', '/api/children/1/buddy', { cookie: kid });
+  assert.equal(buddy.status, 200);
+  assert.equal(buddy.json.name, 'Roshna');
+  assert.ok(buddy.json.total >= 1);
+  assert.equal(buddy.json.lastPassed.level, 'Pre A1 Starters');
+});

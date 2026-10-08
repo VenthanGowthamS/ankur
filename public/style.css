@@ -214,3 +214,38 @@ label.field { display: grid; gap: 4px; font-size: .88rem; color: var(--muted); }
 .card { min-width: 0; }
 .timeline { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
 .timeline .month { margin: 14px 0 0; }
+
+/* ---------- kid mode + Buddy ---------- */
+.shell.kid { padding-bottom: 130px; }
+.shell.kid .hero h1 { font-size: 2.2rem; }
+.shell.kid .hero { background: linear-gradient(135deg, var(--amber-soft), var(--leaf-soft)); }
+.shell.kid .entry h3 { font-size: 1.3rem; }
+.shell.kid .entry .notes { font-size: 1.08rem; }
+.shell.kid .entry { border-radius: 22px; }
+.shell.kid .chip { font-size: 1rem; padding: 8px 16px; }
+.buddy {
+  position: fixed; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 30;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 10px;
+}
+.buddy-btn {
+  width: 68px; height: 68px; border-radius: 50%; border: 0; padding: 4px; cursor: pointer; background: var(--surface);
+  box-shadow: var(--shadow), 0 0 0 3px var(--leaf); animation: bob 3.2s ease-in-out infinite;
+}
+.buddy-btn:hover { box-shadow: var(--shadow), 0 0 0 4px var(--amber); }
+.buddy-btn svg { width: 100%; height: 100%; display: block; }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.buddy-hint {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px 14px 4px 14px; padding: 6px 12px;
+  box-shadow: var(--shadow); font-size: .95rem; animation: hint 9s forwards;
+}
+@keyframes hint { 0%, 80% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+.buddy-panel {
+  width: min(340px, calc(100vw - 28px)); background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+  box-shadow: var(--shadow); padding: 14px; display: grid; gap: 10px;
+}
+.buddy-head { display: flex; justify-content: space-between; align-items: center; }
+.bubble { background: var(--leaf-soft); border-radius: 16px 16px 16px 4px; padding: 10px 14px; font-size: 1.05rem; }
+.bubble-pic:empty { display: none; }
+.bubble-pic img { width: 100%; max-height: 200px; object-fit: cover; border-radius: 14px; display: block; }
+.buddy-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (prefers-reduced-motion: reduce) { .buddy-btn, .buddy-hint { animation: none; } }

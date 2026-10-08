@@ -9,7 +9,7 @@ const CATS = {
 const EVENT_KINDS = [['contest', 'Contest'], ['exam', 'Exam'], ['performance', 'Performance'], ['school', 'School'], ['other', 'Other']];
 const catOptions = () => Object.entries(CATS).map(([v, [e, l]]) => [v, `${e} ${l}`]);
 
-const state = { user: null, children: [], childId: null, view: 'portfolio', filter: 'all' };
+const state = { user: null, children: [], childId: null, view: 'portfolio', filter: 'all', buddy: null };
 
 /* ---------- tiny helpers ---------- */
 function h(tag, props, ...kids) {
@@ -66,6 +66,7 @@ function toast(msg) {
   setTimeout(() => t.remove(), 3200);
 }
 const isParent = () => state.user && state.user.role === 'parent';
+const isKid = () => state.user && state.user.role === 'child';
 const child = () => state.children.find((c) => c.id === state.childId) || state.children[0];
 
 const parseDay = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -159,6 +160,7 @@ async function boot() {
     state.children = await api('GET', '/api/children');
     if (!state.children.find((c) => c.id === state.childId)) state.childId = state.children[0]?.id ?? null;
     if (!isParent() && state.view === 'dashboard') state.view = 'portfolio';
+    if (isKid()) state.view = 'portfolio';
     renderShell();
   } catch (ex) {
     root().replaceChildren(h('div', { class: 'auth' }, h('div', { class: 'card' }, h('p', null, ex.message), h('button', { class: 'btn', onclick: boot }, 'Try again'))));
@@ -179,7 +181,7 @@ function renderAuth(setup) {
     },
   },
   setup && field('Your name', 'name', 'text', { autocomplete: 'name' }),
-  field('Email', 'email', 'email', { autocomplete: 'username' }),
+  setup ? field('Email', 'email', 'email', { autocomplete: 'username' }) : field('Email or username', 'email', 'text', { autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false' }),
   field(setup ? 'Choose a password (8+ characters)' : 'Password', 'password', 'password', { autocomplete: setup ? 'new-password' : 'current-password', minlength: setup ? 8 : 1 }),
   setup && field('Child’s name', 'childName'),
   setup && h('label', { class: 'field' }, 'Child’s date of birth (optional)', h('input', { name: 'childDob', type: 'date' })),
@@ -194,17 +196,20 @@ function renderAuth(setup) {
 
 /* ---------- shell ---------- */
 function renderShell() {
+  document.querySelector('.buddy')?.remove();
   const kids = state.children;
-  const tabs = [['portfolio', '🌱', 'Portfolio'], ...(isParent() ? [['dashboard', '📊', 'Dashboard']] : []), ['settings', '⚙️', isParent() ? 'Family' : 'Account']];
+  const tabs = isKid() ? [] : [['portfolio', '🌱', 'Portfolio'], ...(isParent() ? [['dashboard', '📊', 'Dashboard']] : []), ['settings', '⚙️', isParent() ? 'Family' : 'Account']];
   const main = h('main', { id: 'main' });
   const nav = h('nav', { class: 'nav', 'aria-label': 'Sections' }, tabs.map(([id, ic, label]) =>
     h('button', { 'aria-current': state.view === id ? 'page' : null, onclick: () => { state.view = id; renderShell(); } }, h('span', { class: 'ic' }, ic), label)));
   const switcher = kids.length > 1 && h('label', { class: 'child-switch' }, h('span', { class: 'sr' }, 'Child'),
     h('select', { onchange: (e) => { state.childId = Number(e.target.value); renderShell(); } },
       kids.map((c) => h('option', { value: c.id, selected: c.id === state.childId }, c.nickname || c.name))));
-  root().replaceChildren(h('div', { class: 'shell' },
-    h('header', { class: 'topbar' }, h('div', { class: 'brand' }, sproutSvg(), 'Ankur'), h('div', { class: 'spacer' }), switcher),
-    nav, main));
+  const bye = isKid() && h('button', { class: 'btn small', onclick: async () => { await api('POST', '/api/logout'); state.user = null; state.buddy = null; boot(); } }, 'Bye 👋');
+  root().replaceChildren(h('div', { class: `shell${isKid() ? ' kid' : ''}` },
+    h('header', { class: 'topbar' }, h('div', { class: 'brand' }, sproutSvg(), 'Ankur'), h('div', { class: 'spacer' }), switcher, bye),
+    tabs.length ? nav : null, main));
+  if (isKid() && child()) mountBuddy(child());
   const views = { portfolio: viewPortfolio, dashboard: viewDashboard, settings: viewSettings };
   views[state.view](main).catch((ex) => main.replaceChildren(h('div', { class: 'empty' }, ex.message)));
 }
@@ -221,8 +226,8 @@ async function viewPortfolio(main) {
 
   const hero = h('section', { class: 'hero' },
     sproutSvg('sprout'),
-    h('h1', null, c.name),
-    h('p', { class: 'muted' }, [ageText(c.dob), c.bio].filter(Boolean).join(' · ') || 'Every small step, kept safe.'),
+    h('h1', null, isKid() ? `Hi ${c.nickname || c.name}! 🌟` : c.name),
+    h('p', { class: 'muted' }, isKid() ? 'This is your journey — everything you’ve done and loved.' : [ageText(c.dob), c.bio].filter(Boolean).join(' · ') || 'Every small step, kept safe.'),
     h('div', { class: 'stats' },
       h('span', { class: 'stat' }, h('b', null, entries.length), 'moments'),
       h('span', { class: 'stat' }, h('b', null, entries.reduce((n, e) => n + e.media.length, 0)), 'photos & files'),
@@ -503,11 +508,14 @@ function userForm() {
     title: 'Invite someone', submitLabel: 'Create account', values: { role: 'family' },
     fields: [
       { name: 'name', label: 'Name', required: true, max: 80 },
-      { name: 'email', label: 'Email', type: 'email', required: true },
-      { name: 'password', label: 'Temporary password (8+ characters)', required: true, type: 'text', autocomplete: 'off' },
-      { name: 'role', label: 'Access', type: 'select', options: [['family', 'Family — view only'], ['parent', 'Parent — can edit']] },
+      { name: 'email', label: 'Email — or a simple username for a child', required: true, hint: 'Kids sign in with a short username like “roshna”.' },
+      { name: 'password', label: 'Password (8+ characters; 6+ for a child)', required: true, type: 'text', autocomplete: 'off' },
+      { name: 'role', label: 'Access', type: 'select', options: [['family', 'Family — view only'], ['child', `Child — ${(child() || {}).name || 'kid'}’s own login, view only`], ['parent', 'Parent — can edit']] },
     ],
-    onSubmit: async ({ values }) => { await api('POST', '/api/users', values); toast('Account created — share the password with them'); refresh(); },
+    onSubmit: async ({ values }) => {
+      if (values.role === 'child') values.childId = state.childId;
+      await api('POST', '/api/users', values); toast('Account created — share the password with them'); refresh();
+    },
   });
 }
 function passwordForm() {
@@ -519,6 +527,87 @@ function passwordForm() {
     ],
     onSubmit: async ({ values }) => { await api('POST', '/api/me/password', values); toast('Password updated'); },
   });
+}
+
+
+/* ---------- Buddy: Ankur the sprout, for kid logins only ----------
+   Deliberately scripted: it only reads facts from /buddy and never takes free text,
+   so a child can't type anything to it and it can't say anything unexpected. */
+function buddyFace() {
+  const s = document.createElementNS(SVG_NS, 'svg');
+  s.setAttribute('viewBox', '0 0 100 100'); s.setAttribute('aria-hidden', 'true');
+  const add = (tag, attrs) => { const e = document.createElementNS(SVG_NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); s.append(e); };
+  add('path', { d: 'M50 30 C50 14 38 8 26 10 C26 24 34 32 50 30z', fill: '#4f7f3a' });
+  add('path', { d: 'M50 30 C50 12 64 6 76 9 C77 24 66 33 50 30z', fill: '#e8a33d' });
+  add('circle', { cx: 50, cy: 60, r: 30, fill: '#8bbf6a' });
+  add('circle', { cx: 39, cy: 56, r: 5, fill: '#2b2a22' }); add('circle', { cx: 61, cy: 56, r: 5, fill: '#2b2a22' });
+  add('circle', { cx: 41, cy: 54, r: 1.8, fill: '#fff' }); add('circle', { cx: 63, cy: 54, r: 1.8, fill: '#fff' });
+  add('circle', { cx: 32, cy: 66, r: 5, fill: '#f4a58a', opacity: '.6' }); add('circle', { cx: 68, cy: 66, r: 5, fill: '#f4a58a', opacity: '.6' });
+  add('path', { d: 'M41 68 Q50 77 59 68', stroke: '#2b2a22', 'stroke-width': 3, 'stroke-linecap': 'round', fill: 'none' });
+  return s;
+}
+const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const CHEERS = [
+  'You are growing every single day! 🌱', 'Brave, curious and kind — that’s you!', 'Every little step counts. Look how far you’ve come!',
+  'Practice makes sparkle ✨', 'I’m so proud of you! 🎉', 'You can do hard things. I believe in you! 💪',
+];
+
+async function mountBuddy(c) {
+  if (!state.buddy || state.buddy.childId !== c.id) {
+    try { state.buddy = { childId: c.id, facts: await api('GET', `/api/children/${c.id}/buddy`) }; } catch { return; }
+  }
+  if (!document.getElementById('app').querySelector('.shell.kid')) return;
+  const f = state.buddy.facts;
+  const name = f.name;
+  const say = h('div', { class: 'bubble', 'aria-live': 'polite' });
+  const pic = h('div', { class: 'bubble-pic' });
+  const chips = h('div', { class: 'buddy-chips' });
+  const panel = h('div', { class: 'buddy-panel hidden', role: 'dialog', 'aria-label': 'Ankur the sprout' },
+    h('div', { class: 'buddy-head' }, h('strong', null, 'Ankur the sprout 🌱'),
+      h('button', { class: 'btn small ghost', 'aria-label': 'Close', onclick: () => panel.classList.add('hidden') }, '✕')),
+    say, pic, chips);
+
+  const areas = Object.keys(f.counts).length;
+  const talk = (text, imageId, alt) => {
+    say.textContent = text;
+    pic.replaceChildren(...(imageId ? [h('img', { src: `/media/${imageId}`, alt: alt || '' })] : []));
+  };
+  const goTo = (cat) => { state.filter = cat; refresh(); document.getElementById('main')?.scrollIntoView({ behavior: 'smooth' }); };
+
+  const topics = [];
+  if (f.total > 0) {
+    topics.push(['⭐ How many moments?', () => talk(`You have ${f.total} moment${f.total > 1 ? 's' : ''} saved in ${areas} area${areas > 1 ? 's' : ''}. Wow, ${name}!`)]);
+    topics.push(['💭 Remember something', () => {
+      const r = f.remember;
+      talk(`Remember “${r.title}” from ${fmtDate(r.date)}? That was a good one!`, r.imageId, r.title);
+    }]);
+    topics.push(['🏆 What am I proud of?', () => {
+      if (f.lastPassed) talk(`You passed ${f.lastPassed.level}${f.lastPassed.score ? ` with ${f.lastPassed.score}` : ''}! 🎉`);
+      else talk(`Your newest moment is “${f.latest.title}”. Keep going!`, f.latest.imageId, f.latest.title);
+    }]);
+  }
+  topics.push(['📅 What’s coming up?', () => talk(f.nextEvent
+    ? `${f.nextEvent.title} is on ${fmtDate(f.nextEvent.date)}. You’ve got this! 💪`
+    : 'Nothing is planned yet. Ask Mummy or Papa about the next contest!')]);
+  Object.entries(f.counts).sort((a, b) => b[1] - a[1]).slice(0, 3).forEach(([cat]) => {
+    const [emoji, label] = CATS[cat] || CATS.other;
+    topics.push([`${emoji} Show my ${label}`, () => { talk(`Here are your ${label} moments!`); goTo(cat); }]);
+  });
+  if (state.filter !== 'all') topics.push(['🌈 Show everything', () => goTo('all')]);
+  topics.push(['🎉 Cheer me on', () => talk(pick(CHEERS))]);
+
+  chips.replaceChildren(...topics.map(([label, fn]) => h('button', { class: 'chip', onclick: fn }, label)));
+  const hello = () => talk(f.total > 0
+    ? `Hi ${name}! I’m Ankur, your sprout friend. I keep all your moments safe. What would you like to see?`
+    : `Hi ${name}! Your journey is just starting. Ask Mummy or Papa to add your first moment!`);
+
+  const btn = h('button', { class: 'buddy-btn', 'aria-label': 'Talk to Ankur the sprout', onclick: () => {
+    panel.classList.toggle('hidden');
+    hint.remove();
+    if (!panel.classList.contains('hidden')) hello();
+  } }, buddyFace());
+  const hint = h('div', { class: 'buddy-hint' }, `Hi ${name}! Tap me 👋`);
+  document.body.append(h('div', { class: 'buddy' }, panel, hint, btn));
 }
 
 /* ---------- go ---------- */

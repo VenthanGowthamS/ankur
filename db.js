@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT NOT NULL UNIQUE COLLATE NOCASE,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('parent','family')),
+  role TEXT NOT NULL CHECK (role IN ('parent','family','child')),
+  child_id INTEGER REFERENCES children(id) ON DELETE CASCADE,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS sessions (
@@ -89,11 +90,33 @@ const CAMBRIDGE_LADDER = [
   'B1 Preliminary (PET)',
 ];
 
+// Databases created before the 'child' role existed get their users table rebuilt in place.
+function migrate(db) {
+  const row = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").get();
+  if (!row || row.sql.includes("'child'")) return;
+  db.exec('PRAGMA foreign_keys = OFF');
+  db.exec('BEGIN');
+  try {
+    db.exec(`CREATE TABLE users_new (
+      id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      password_hash TEXT NOT NULL, role TEXT NOT NULL CHECK (role IN ('parent','family','child')),
+      child_id INTEGER REFERENCES children(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')))`);
+    db.exec(`INSERT INTO users_new (id, name, email, password_hash, role, created_at)
+             SELECT id, name, email, password_hash, role, created_at FROM users`);
+    db.exec('DROP TABLE users');
+    db.exec('ALTER TABLE users_new RENAME TO users');
+    db.exec('COMMIT');
+  } catch (err) { db.exec('ROLLBACK'); throw err; }
+  db.exec('PRAGMA foreign_keys = ON');
+}
+
 function openDb(dataDir) {
   fs.mkdirSync(path.join(dataDir, 'uploads'), { recursive: true });
   const db = new DatabaseSync(path.join(dataDir, 'ankur.db'));
   db.exec('PRAGMA journal_mode = WAL');
   db.exec('PRAGMA foreign_keys = ON');
+  migrate(db);
   db.exec(SCHEMA);
   return db;
 }
