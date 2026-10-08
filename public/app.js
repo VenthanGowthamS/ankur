@@ -2,43 +2,19 @@
 /* Ankur — a private growth portfolio and extra-curricular tracker. Vanilla JS, no build step.
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
-const CATS = {
-  art: ['🎨', 'Art'], speech: ['🎤', 'Speech'], exam: ['📜', 'Exams'], olympiad: ['🧮', 'Olympiads'], coding: ['💻', 'Coding'], robotics: ['🤖', 'Robotics'], hindi: ['🪔', 'Hindi'], chinese: ['🀄', 'Chinese'],
-  dance: ['💃', 'Dance'], stage: ['🎭', 'Drama & stage'], singing: ['🎵', 'Singing & music'], writing: ['✍️', 'Writing'],
-  martial: ['🥋', 'Martial arts'], sports: ['⚽', 'Sports'], skating: ['⛸️', 'Skating'],
-  accolade: ['🏅', 'Accolades'], school: ['🏫', 'School'], other: ['✨', 'Other'],
-};
-const LEVELS = [['school', '🏫 School'], ['zonal', '📍 Zonal'], ['national', '🏆 National'], ['international', '🌍 International']];
-const SUBJECTS = [['maths', '🔢 Maths'], ['english', '📖 English'], ['science', '🔬 Science'], ['computer', '💻 Computer'],
-  ['gk', '🌍 General knowledge'], ['hindi', '🪔 Hindi'], ['chinese', '🀄 Chinese'], ['social', '🗺️ Social studies'], ['other', '✨ Other']];
+const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, LADDERS, EVENT_KINDS } = window.ANKUR; // from catalog.js
 const subjectLabel = (k) => (SUBJECTS.find((x) => x[0] === k) || [, k])[1];
+const levelLabel = (k) => (LEVELS.find((x) => x[0] === k) || [, k])[1];
+const groupOf = (cat) => (CATS[cat] || CATS.other)[2];
 // "52 / 60" -> "52 / 60 · 87%"; anything else is shown as typed.
 function scoreText(e) {
   if (!e.score) return '';
   const m = /^\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*$/.exec(e.score);
   return m && Number(m[2]) > 0 ? `${e.score.trim()} · ${Math.round((Number(m[1]) / Number(m[2])) * 100)}%` : e.score;
 }
-// Ready-made ladders (belts, olympiad rounds…). Editable after adding.
-const LADDERS = {
-  'Karate belts': ['White belt', 'Yellow belt', 'Orange belt', 'Green belt', 'Blue belt', 'Brown belt', 'Black belt'],
-  'Taekwondo belts': ['White belt', 'Yellow belt', 'Green belt', 'Blue belt', 'Red belt', 'Black belt'],
-  'SOF Olympiad stages': ['Level 1', 'Level 2'],
-  'SASMO awards': ['Participation', 'Honourable mention', 'Bronze', 'Silver', 'Gold', 'Perfect score'],
-  'Skating levels': ['Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5'],
-  'Coding levels': ['Block coding (Scratch)', 'Python basics', 'Games & apps', 'Web basics', 'Own projects'],
-  'Robotics levels': ['Build basics', 'Sensors & motors', 'Programming robots', 'Autonomous challenges', 'Robotics competition'],
-  'Chinese (Mandarin) levels': ['YCT 1', 'YCT 2', 'YCT 3', 'YCT 4', 'HSK 1', 'HSK 2', 'HSK 3'],
-  'Chinese calligraphy': ['Basic strokes', 'Characters', 'Poems & couplets', 'Exhibition piece'],
-  'Dance grades': ['Pre-primary', 'Primary', 'Grade 1', 'Grade 2', 'Grade 3'],
-  'Speech & drama grades': ['Preparatory', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4'],
-  'Singing & piano grades': ['Prep test', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5'],
-  'Swimming (SwimSafer)': ['Bronze', 'Silver', 'Gold'],
-  'Football': ['School team', 'Zonal team', 'National squad', 'International'],
-};
-const EVENT_KINDS = [['contest', 'Contest'], ['exam', 'Exam'], ['performance', 'Performance'], ['school', 'School'], ['other', 'Other']];
 const catOptions = () => Object.entries(CATS).map(([v, [e, l]]) => [v, `${e} ${l}`]);
 
-const state = { user: null, children: [], childId: null, view: 'portfolio', filter: 'all', buddy: null, previewKid: false };
+const state = { user: null, children: [], childId: null, view: 'portfolio', group: 'all', filter: 'all', buddy: null, previewKid: false };
 
 /* ---------- tiny helpers ---------- */
 function h(tag, props, ...kids) {
@@ -185,6 +161,7 @@ async function boot() {
   try {
     const me = await api('GET', '/api/me');
     if (!me.user) return renderAuth(me.needsSetup);
+    if (!state.user || state.user.id !== me.user.id) state.buddy = null;
     state.user = me.user;
     state.children = await api('GET', '/api/children');
     if (!state.children.find((c) => c.id === state.childId)) state.childId = state.children[0]?.id ?? null;
@@ -214,7 +191,7 @@ function renderAuth(needsSetup) {
         const d = Object.fromEntries(new FormData(form));
         try {
           await api('POST', setup ? '/api/setup' : '/api/login', d);
-          state.view = 'portfolio'; state.filter = 'all'; state.previewKid = false;
+          Object.assign(state, { view: 'portfolio', group: 'all', filter: 'all', previewKid: false });
           await boot();
         } catch (ex) {
           err.textContent = kid && /wrong|password/i.test(ex.message) ? 'Oops! That name or secret word doesn’t match. Try again 🙂'
@@ -268,6 +245,7 @@ function renderAuth(needsSetup) {
 
 /* ---------- shell ---------- */
 function renderShell() {
+  document.title = 'Ankur';
   document.querySelector('.buddy')?.remove();
   const kids = state.children;
   const tabs = isKid() ? [] : [['portfolio', '🌱', 'Portfolio'], ...(isParent() ? [['dashboard', '📊', 'Dashboard']] : []), ['settings', '⚙️', isParent() ? 'Family' : 'Account']];
@@ -285,10 +263,12 @@ function renderShell() {
     h('header', { class: 'topbar' }, h('div', { class: 'brand' }, isKid() ? buddyFace() : sproutSvg(), 'Ankur'), h('div', { class: 'spacer' }), switcher, bye),
     tabs.length ? nav : null, main));
   if (isKid() && child()) mountBuddy(child());
-  const views = { portfolio: viewPortfolio, dashboard: viewDashboard, settings: viewSettings };
+  if (state.view === 'book' && isKid()) state.view = 'portfolio';
+  const views = { portfolio: viewPortfolio, dashboard: viewDashboard, settings: viewSettings, book: viewBook };
   views[state.view](main).catch((ex) => main.replaceChildren(h('div', { class: 'empty' }, ex.message)));
 }
 const refresh = () => renderShell();
+function setFilter(group, cat) { state.group = group; state.filter = cat; refresh(); }
 
 /* ---------- portfolio ---------- */
 async function viewPortfolio(main) {
@@ -297,7 +277,9 @@ async function viewPortfolio(main) {
   const entries = await api('GET', `/api/children/${c.id}/entries`);
   const counts = {};
   entries.forEach((e) => { counts[e.category] = (counts[e.category] || 0) + 1; });
-  const shown = state.filter === 'all' ? entries : entries.filter((e) => e.category === state.filter);
+  if (state.filter !== 'all' && !counts[state.filter]) state.filter = 'all';
+  const inGroup = state.group === 'all' ? entries : entries.filter((e) => groupOf(e.category) === state.group);
+  const shown = state.filter === 'all' ? inGroup : inGroup.filter((e) => e.category === state.filter);
 
   const hero = h('section', { class: 'hero' },
     sproutSvg('sprout'),
@@ -308,12 +290,21 @@ async function viewPortfolio(main) {
       h('span', { class: 'stat' }, h('b', null, entries.reduce((n, e) => n + e.media.length, 0)), 'photos & files'),
       h('span', { class: 'stat' }, h('b', null, Object.keys(counts).length), 'areas')));
 
-  const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filter' },
-    [['all', 'All']].concat(Object.entries(CATS).filter(([k]) => counts[k] || state.filter === k).map(([k, [e, l]]) => [k, `${e} ${l} · ${counts[k] || 0}`]))
-      .map(([k, label]) => h('button', { class: 'chip', 'aria-pressed': String(state.filter === k), onclick: () => { state.filter = k; refresh(); } }, label)));
+  // Tabs (Study · Sports · Arts & stage · Awards) and, inside a tab, one chip per area.
+  const groupCount = (g) => entries.filter((e) => groupOf(e.category) === g).length;
+  const tabs = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Sections' },
+    [['all', '🌈', 'All', 'All', entries.length], ...GROUPS.map(([g, e, title, l]) => [g, e, title, l, groupCount(g)])].map(([g, e, title, l, n]) =>
+      h('button', { class: 'tab', role: 'tab', title, 'aria-label': `${title}, ${n} moments`, 'aria-selected': String(state.group === g), onclick: () => setFilter(g, 'all') },
+        h('span', { class: 'tab-ic' }, e), h('span', { class: 'tab-l' }, l), h('span', { class: 'tab-n' }, n))));
+  const areaKeys = Object.keys(CATS).filter((k) => counts[k] && (state.group === 'all' || groupOf(k) === state.group));
+  const chips = areaKeys.length > 1 && h('div', { class: 'chips', role: 'group', 'aria-label': 'Filter by area' },
+    [['all', state.group === 'all' ? 'Every area' : 'All of these']].concat(areaKeys.map((k) => [k, `${CATS[k][0]} ${CATS[k][1]} · ${counts[k]}`]))
+      .map(([k, label]) => h('button', { class: 'chip', 'aria-pressed': String(state.filter === k), onclick: () => setFilter(state.group, k) }, label)));
 
   const head = h('div', { class: 'section-head' }, h('h2', null, 'Journey'),
-    isParent() && h('button', { class: 'btn primary', onclick: () => entryForm(c) }, '＋ Add a moment'));
+    h('div', { class: 'row head-acts' },
+      !isKid() && entries.length > 0 && h('button', { class: 'btn small', title: 'Make a PDF portfolio', onclick: () => { state.view = 'book'; renderShell(); } }, '📄 PDF'),
+      isParent() && h('button', { class: 'btn primary small', onclick: () => entryForm(c) }, '＋ Add moment')));
 
   let timeline;
   if (!shown.length) {
@@ -329,7 +320,7 @@ async function viewPortfolio(main) {
       timeline.append(entryCard(e, c));
     }
   }
-  main.replaceChildren(hero, chips, head, timeline);
+  main.replaceChildren(hero, tabs, chips || '', head, timeline);
 }
 
 function entryCard(e, c) {
@@ -347,7 +338,7 @@ function buildEntry(e, c, emoji, label) {
           e.subject && h('span', { class: 'win subject' }, subjectLabel(e.subject)),
           e.score && h('span', { class: 'win score' }, `📝 ${scoreText(e)}`),
           e.result && h('span', { class: 'win result' }, `🏅 ${e.result}`),
-          e.level && h('span', { class: 'win level' }, (LEVELS.find((l) => l[0] === e.level) || [, e.level])[1]))),
+          e.level && h('span', { class: 'win level' }, levelLabel(e.level)))),
       isParent() && h('button', { class: 'btn small ghost', 'aria-label': `Edit ${e.title}`, onclick: () => entryForm(c, e) }, 'Edit')),
     e.notes && h('p', { class: 'notes' }, e.notes),
     e.media.length > 0 && h('div', { class: 'media' }, e.media.map(mediaItem)));
@@ -386,9 +377,9 @@ function entryForm(c, entry) {
   openForm({
     title: editing ? 'Edit moment' : 'Add a moment',
     submitLabel: editing ? 'Save' : 'Add to journey',
-    values: entry || { date: todayIso(), category: state.filter !== 'all' ? state.filter : 'art' },
+    values: entry || { date: todayIso(), category: state.filter !== 'all' ? state.filter : (Object.entries(CATS).find(([, v]) => v[2] === state.group) || ['art'])[0] },
     fields: [
-      { name: 'title', label: 'What happened?', required: true, max: 160 },
+      { name: 'title', label: 'What happened?', required: true, max: 160, list: 'olympiad-names', hint: 'For an olympiad, start typing — e.g. SASMO, SEAMO, ICAS, Math Kangaroo' },
       { name: 'category', label: 'Area', type: 'select', options: catOptions() },
       { name: 'date', label: 'Date', type: 'date', required: true },
       { name: 'subject', label: 'Subject — for olympiads and tests', type: 'select', options: [['', '— none —'], ...SUBJECTS] },
@@ -398,7 +389,7 @@ function entryForm(c, entry) {
       { name: 'notes', label: 'Notes — scores, feedback, how it felt', type: 'textarea', max: 5000 },
       { name: 'files', label: editing ? 'Add more photos, recordings or PDFs' : 'Photos, recordings, videos or PDFs', type: 'files', hint: 'Up to 8 files, 80 MB each.' },
     ],
-    extra: existing,
+    extra: [h('datalist', { id: 'olympiad-names' }, OLYMPIADS.map((o) => h('option', { value: o }))), existing],
     onSubmit: async ({ values, files }) => {
       if (editing) {
         await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes, level: values.level, result: values.result, subject: values.subject, score: values.score });
@@ -409,16 +400,155 @@ function entryForm(c, entry) {
         files.forEach((f) => fd.append('files', f));
         await api('POST', `/api/children/${c.id}/entries`, fd);
       }
-      state.filter = 'all';
       refresh();
     },
     onDelete: editing ? async () => { await api('DELETE', `/api/entries/${entry.id}`); closeModal(); refresh(); } : null,
   });
 }
 
+/* ---------- PDF portfolio ----------
+   A print-ready A4 book built from the same data. "Save as PDF" uses the browser's own print engine,
+   which shapes Hindi, Chinese and emoji correctly — something server-side PDF libraries can't do well. */
+const LEVEL_RANK = { international: 4, national: 3, zonal: 2, school: 1 };
+const pct = (e) => {
+  const m = /^\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\s*$/.exec(e.score || '');
+  return m && Number(m[2]) > 0 ? Math.round((Number(m[1]) / Number(m[2])) * 100) : null;
+};
+
+async function viewBook(main) {
+  const c = child();
+  const parent = isParent();
+  const [entries, ladder, activities] = await Promise.all([
+    api('GET', `/api/children/${c.id}/entries`),
+    parent ? api('GET', `/api/children/${c.id}/ladder`) : [],
+    parent ? api('GET', `/api/children/${c.id}/activities`) : [],
+  ]);
+  document.title = `${c.name} — Ankur portfolio`;
+  const opts = state.book || (state.book = { group: 'all', from: '', to: '', photos: true, notes: true, ladders: true });
+  const book = h('div', { class: 'book' });
+
+  const draw = () => {
+    const picked = entries.filter((e) => (opts.group === 'all' || groupOf(e.category) === opts.group)
+      && (!opts.from || e.date >= opts.from) && (!opts.to || e.date <= opts.to));
+    book.replaceChildren(...bookPages(c, picked, parent && opts.ladders ? ladder : [], parent ? activities.filter((a) => a.active) : [], opts));
+  };
+
+  const set = (k) => (ev) => { opts[k] = ev.target.type === 'checkbox' ? ev.target.checked : ev.target.value; draw(); };
+  const save = h('button', { class: 'btn primary', onclick: async () => {
+    save.disabled = true; save.textContent = 'Preparing photos…';
+    // Wait for every photo so none print as blank boxes.
+    await Promise.all([...book.querySelectorAll('img')].map((img) => (img.complete ? null : new Promise((r) => { img.onload = img.onerror = r; }))));
+    save.disabled = false; save.textContent = '⬇️ Save as PDF';
+    window.print();
+  } }, '⬇️ Save as PDF');
+  const toolbar = h('div', { class: 'card book-tools no-print' },
+    h('div', { class: 'row' },
+      h('button', { class: 'btn', onclick: () => { state.view = 'portfolio'; renderShell(); } }, '← Back'),
+      h('div', { class: 'spacer' }), save),
+    h('div', { class: 'book-opts' },
+      h('label', { class: 'field' }, 'Include', h('select', { onchange: set('group') },
+        [['all', 'Everything'], ...GROUPS.map(([g, e, l]) => [g, `${e} ${l} only`])].map(([v, l]) => h('option', { value: v, selected: opts.group === v }, l)))),
+      h('label', { class: 'field' }, 'From', h('input', { type: 'date', value: opts.from, onchange: set('from') })),
+      h('label', { class: 'field' }, 'To', h('input', { type: 'date', value: opts.to, onchange: set('to') })),
+      h('label', { class: 'field check' }, h('input', { type: 'checkbox', checked: opts.photos, onchange: set('photos') }), 'Photos'),
+      h('label', { class: 'field check' }, h('input', { type: 'checkbox', checked: opts.notes, onchange: set('notes') }), 'Notes'),
+      parent && h('label', { class: 'field check' }, h('input', { type: 'checkbox', checked: opts.ladders, onchange: set('ladders') }), 'Levels & activities')),
+    h('p', { class: 'small muted' }, 'Tip: in the print window choose “Save as PDF”. On iPhone, tap Share → Print, then pinch out on the preview to get the PDF.'));
+  draw();
+  main.replaceChildren(toolbar, book);
+}
+
+function bookPages(c, entries, ladder, activities, opts) {
+  const name = c.nickname || c.name;
+  const dates = entries.map((e) => e.date).sort();
+  const range = dates.length ? `${fmtDate(opts.from || dates[0])} – ${fmtDate(opts.to || dates[dates.length - 1])}` : 'No moments in this range';
+  const wins = entries.filter((e) => e.result || e.level);
+  const olympiads = entries.filter((e) => e.category === 'olympiad');
+  const passed = ladder.filter((l) => l.status === 'passed');
+  const areas = new Set(entries.map((e) => e.category));
+  const stat = (n, l) => h('div', { class: 'b-stat' }, h('b', null, n), h('span', null, l));
+  const table = (head, rows) => h('table', { class: 'b-table' }, h('thead', null, h('tr', null, head.map((x) => h('th', null, x)))),
+    h('tbody', null, rows.map((r) => h('tr', null, r.map((x) => h('td', null, x ?? ''))))));
+  const pages = [];
+
+  // Cover
+  pages.push(h('section', { class: 'b-cover' },
+    sproutSvg('b-logo'),
+    h('div', { class: 'b-kicker' }, 'Growth portfolio & extra-curricular record'),
+    h('h1', null, c.name),
+    h('p', { class: 'b-sub' }, [ageText(c.dob) && `Age ${ageText(c.dob)}`, c.bio].filter(Boolean).join(' · ')),
+    h('p', { class: 'b-range' }, range),
+    h('div', { class: 'b-stats' }, stat(entries.length, 'moments'), stat(areas.size, 'areas'), stat(wins.length, 'results & awards'),
+      stat(olympiads.length, 'olympiads'), ladder.length ? stat(passed.length, 'levels passed') : null),
+    h('div', { class: 'b-areas' }, GROUPS.map(([g, e, l]) => {
+      const ks = Object.keys(CATS).filter((k) => CATS[k][2] === g && areas.has(k));
+      return ks.length ? h('div', null, h('strong', null, `${e} ${l}: `), ks.map((k) => CATS[k][1]).join(', ')) : null;
+    }))));
+
+  // Highlights: the biggest stage first
+  if (wins.length) {
+    const top = [...wins].sort((a, b) => (LEVEL_RANK[b.level] || 0) - (LEVEL_RANK[a.level] || 0) || b.date.localeCompare(a.date)).slice(0, 15);
+    pages.push(h('section', { class: 'b-sec' }, h('h2', null, '🏆 Highlights'),
+      table(['Date', 'Area', 'What', 'Level', 'Result'], top.map((e) => [fmtDate(e.date), `${CATS[e.category]?.[0] || ''} ${CATS[e.category]?.[1] || ''}`, e.title, e.level ? levelLabel(e.level) : '', e.result]))));
+  }
+
+  // Olympiad record, by subject, with best and average percentage
+  if (olympiads.length) {
+    const bySubject = new Map();
+    olympiads.forEach((e) => { const k = e.subject || 'other'; if (!bySubject.has(k)) bySubject.set(k, []); bySubject.get(k).push(e); });
+    pages.push(h('section', { class: 'b-sec' }, h('h2', null, '🧮 Olympiad record'),
+      h('div', { class: 'b-cards' }, [...bySubject].map(([k, rows]) => {
+        const p = rows.map(pct).filter((x) => x != null);
+        return h('div', { class: 'b-card' }, h('strong', null, subjectLabel(k)),
+          h('span', null, `${rows.length} olympiad${rows.length > 1 ? 's' : ''}`),
+          p.length ? h('span', null, `Best ${Math.max(...p)}% · Average ${Math.round(p.reduce((a, b) => a + b, 0) / p.length)}%`) : null);
+      })),
+      table(['Date', 'Olympiad', 'Subject', 'Score', 'Level', 'Result'],
+        [...olympiads].sort((a, b) => b.date.localeCompare(a.date)).map((e) => [fmtDate(e.date), e.title, e.subject ? subjectLabel(e.subject) : '', scoreText(e), e.level ? levelLabel(e.level) : '', e.result]))));
+  }
+
+  // Levels, belts and grades
+  if (ladder.length) {
+    const tracks = new Map();
+    ladder.forEach((l) => { if (!tracks.has(l.track)) tracks.set(l.track, []); tracks.get(l.track).push(l); });
+    pages.push(h('section', { class: 'b-sec' }, h('h2', null, '🪜 Levels, belts & grades'),
+      h('div', { class: 'b-cards' }, [...tracks].map(([t, steps]) => h('div', { class: 'b-card' }, h('strong', null, t),
+        h('div', { class: 'b-steps' }, steps.map((s) => h('span', { class: `b-step ${s.status}` },
+          `${s.status === 'passed' ? '✓ ' : s.status === 'preparing' ? '… ' : ''}${s.level}${s.score ? ` (${s.score})` : ''}`))))))));
+  }
+  if (activities.length) {
+    pages.push(h('section', { class: 'b-sec' }, h('h2', null, '📅 Current classes & activities'),
+      table(['Activity', 'Area', 'When', 'Teacher / place'], activities.map((a) => [a.name, CATS[a.category]?.[1] || '', a.schedule, a.provider]))));
+  }
+
+  // The journey, tab by tab, area by area
+  for (const [g, ge, gl] of GROUPS) {
+    const ks = Object.keys(CATS).filter((k) => CATS[k][2] === g && areas.has(k));
+    if (!ks.length) continue;
+    pages.push(h('section', { class: 'b-sec b-group' }, h('h2', null, `${ge} ${gl}`),
+      ks.map((k) => h('div', { class: 'b-area', 'data-cat': k }, h('h3', null, `${CATS[k][0]} ${CATS[k][1]}`),
+        entries.filter((e) => e.category === k).map((e) => {
+          const imgs = opts.photos ? e.media.filter((m) => m.mime.startsWith('image/')).slice(0, 3) : [];
+          const extras = e.media.filter((m) => !m.mime.startsWith('image/')).length;
+          return h('article', { class: 'b-entry' },
+            h('div', { class: 'b-when' }, fmtDate(e.date)),
+            h('div', { class: 'b-body' },
+              h('h4', null, e.title),
+              (e.result || e.level || e.score || e.subject) && h('div', { class: 'b-badges' },
+                [e.subject && subjectLabel(e.subject), e.score && `📝 ${scoreText(e)}`, e.result && `🏅 ${e.result}`, e.level && levelLabel(e.level)].filter(Boolean).map((t) => h('span', null, t))),
+              opts.notes && e.notes && h('p', null, e.notes),
+              imgs.length > 0 && h('div', { class: 'b-photos' }, imgs.map((m) => h('img', { src: `/media/${m.id}`, alt: m.original || '' }))),
+              extras > 0 && h('div', { class: 'b-more' }, `+ ${extras} recording${extras > 1 ? 's' : ''} or document${extras > 1 ? 's' : ''} kept in Ankur`)));
+        })))));
+  }
+  pages.push(h('footer', { class: 'b-foot' }, `${name}’s portfolio · made with Ankur on ${fmtDate(todayIso())} · a private family record`));
+  return pages;
+}
+
 /* ---------- dashboard (parents) ---------- */
 async function viewDashboard(main) {
   const c = child();
+  if (!c) return main.replaceChildren(h('div', { class: 'empty' }, 'Add a child first, from the Family tab.'));
   const [sum, events, activities, ladder, olympiads] = await Promise.all([
     api('GET', `/api/children/${c.id}/summary`),
     api('GET', `/api/children/${c.id}/events`),
@@ -466,6 +596,7 @@ async function viewDashboard(main) {
   const bySubject = new Map();
   olympiads.forEach((e) => { const k = e.subject || 'other'; if (!bySubject.has(k)) bySubject.set(k, []); bySubject.get(k).push(e); });
   const scoreCard = (k, rows) => h('div', { class: 'card' }, h('h3', null, subjectLabel(k)),
+    (() => { const p = rows.map(pct).filter((x) => x != null); return p.length ? h('div', { class: 'small muted' }, `${rows.length} olympiad${rows.length > 1 ? 's' : ''} · best ${Math.max(...p)}% · average ${Math.round(p.reduce((a, b) => a + b, 0) / p.length)}%`) : null; })(),
     h('div', { class: 'scores' }, rows.map((r) => h('div', { class: 'score-row' },
       h('div', { class: 'main' }, h('div', { class: 'title' }, r.title), h('div', { class: 'small muted' }, [fmtDate(r.date), r.result].filter(Boolean).join(' · '))),
       h('b', { class: 'pts' }, scoreText(r) || '—')))));
@@ -598,7 +729,8 @@ async function viewSettings(main) {
       h('div', { class: 'list' }, users.map((u) => h('div', { class: 'card item' },
         h('div', { class: 'main' }, h('div', { class: 'title' }, u.name, u.id === state.user.id && ' (you)'), h('div', { class: 'small muted' }, u.role === 'child' ? `username “${u.email}” · kid login — tap “I’m a kid” on the sign-in page` : `${u.email} · ${u.role}`)),
         u.id !== state.user.id && h('button', { class: 'btn small danger', onclick: async () => {
-          if (await confirmBox(`Remove ${u.name}’s access?`, 'Remove')) { await api('DELETE', `/api/users/${u.id}`); refresh(); }
+          if (!(await confirmBox(`Remove ${u.name}’s access? They are signed out everywhere.`, 'Remove'))) return;
+          try { await api('DELETE', `/api/users/${u.id}`); refresh(); } catch (ex) { toast(ex.message); }
         } }, 'Remove')))));
   }
 
@@ -615,7 +747,7 @@ async function viewSettings(main) {
 async function loadSamples(c) {
   try {
     await api('POST', `/api/children/${c.id}/samples`);
-    state.view = 'portfolio'; state.filter = 'all';
+    Object.assign(state, { view: 'portfolio', group: 'all', filter: 'all' });
     toast('Sample moments added — remove them any time in the Family tab');
     refresh();
   } catch (ex) { toast(ex.message); }
@@ -709,7 +841,7 @@ async function mountBuddy(c) {
     say.textContent = text;
     pic.replaceChildren(...(imageId ? [h('img', { src: `/media/${imageId}`, alt: alt || '' })] : []));
   };
-  const goTo = (cat) => { state.filter = cat; refresh(); document.getElementById('main')?.scrollIntoView({ behavior: 'smooth' }); };
+  const goTo = (cat) => { if (cat === 'all') setFilter('all', 'all'); else setFilter(groupOf(cat), cat); document.getElementById('main')?.scrollIntoView({ behavior: 'smooth' }); };
 
   const topics = [];
   if (f.total > 0) {

@@ -8,8 +8,15 @@ A private growth portfolio, **extra-curricular tracker** and parent dashboard fo
 
 - **Private by design** — login only. Nothing is public, uploads are served only to signed-in users, pages are `noindex`.
 - **Three roles** — *Parent* (add/edit everything), *Family* (view the portfolio only) and *Child* (view their own journey, with Buddy).
-- **Portfolio journey** — a timeline of moments with notes, photos, voice/speech recordings, videos and PDFs. Areas include Art, Speech, Exams, Olympiads (subject, score and percentage), Coding, Robotics, Hindi, Martial arts, Sports, Skating, Accolades and School — each achievement can carry a level (school, zonal, national, international) and a result (medal, rank, belt).
-- **Parent dashboard** — upcoming contests & exams, activities (Hindi tuition, art class, …) and an **exam ladder** (Cambridge pre-seeded; one-tap ladders for karate and taekwondo belts, olympiad rounds, skating levels and football; add any track).
+- **Portfolio journey** — a timeline of moments with notes, photos, voice/speech recordings, videos and PDFs, organised in tabs:
+  - 📚 **Study** — Exams, Olympiads (subject, score and percentage; SASMO, SEAMO, ICAS, Math Kangaroo, SOF suggestions), Chinese, Hindi, Writing, Coding, Robotics
+  - 🏅 **Sports** — Sports & games, Swimming, Gymnastics, Martial arts, Skating
+  - 🎨 **Arts & stage** — Art, Dance, Singing & music, Drama & stage, Speech
+  - ⭐ **Awards & school** — Accolades, School, Other
+
+  Each achievement can carry a level (school, zonal, national, international) and a result (medal, rank, belt).
+- **PDF portfolio** — one tap builds an A4 book: cover, highlights (biggest stage first), olympiad record with best and average % per subject, levels and belts, current classes, then every moment with photos. Filter by tab and dates, then *Save as PDF*. It uses the browser's print engine, so Hindi, Chinese and emoji come out right.
+- **Parent dashboard** — upcoming contests & exams, activities (Hindi tuition, art class, …) and an **exam ladder** (Cambridge pre-seeded; one-tap ladders for Mandarin YCT/HSK, ICAS and SASMO awards, SwimSafer, gymnastics, dance, drama and music grades, belts, coding and robotics; add any track).
 - **Kid login + Buddy** — each child can have a view-only login (fenced to their own profile) with a friendly, tappable sprout buddy. Parents don't see it. See [docs/WHY.md](docs/WHY.md).
 - **Multi-child ready**, installable on a phone (PWA), light/dark mode.
 
@@ -69,12 +76,16 @@ On first visit you'll be asked to create the parent account and the first child.
 ## Layout
 
 ```
-server.js   Express API + static hosting
-db.js       SQLite schema and helpers
-public/     Single-page app (vanilla JS, no build step), PWA manifest, service worker
-test/       API tests (node --test)
+server.js          Express API + static hosting
+db.js              SQLite schema and helpers
+demo-content.js    Fictional sample moments (flagged, removable in one tap)
+public/catalog.js  THE list of areas, tabs, levels, subjects and ladder templates — shared by server and browser
+public/app.js      Single-page app (vanilla JS, no build step); PWA manifest and service worker alongside
+test/              API tests (node --test)
 ```
+
+To add a new area, add one line to `CATS` in `public/catalog.js` and a colour in `style.css` — a test fails if you forget the colour.
 
 ## Roadmap ideas
 
-Per-entry visibility (hide some from family), shareable "portfolio PDF" export, yearly highlights, reminders for upcoming events, S3 storage for media, multi-family accounts.
+Per-entry visibility (hide some from family), yearly highlights, reminders for upcoming events, S3 storage for media, multi-family accounts.

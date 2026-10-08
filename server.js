@@ -8,11 +8,21 @@ const bcrypt = require('bcryptjs');
 const { openDb, seedLadder, tx } = require('./db');
 const { addSampleContent, removeSampleContent } = require('./demo-content');
 
-const CATEGORIES = ['art', 'speech', 'exam', 'olympiad', 'coding', 'robotics', 'hindi', 'chinese', 'dance', 'stage', 'singing', 'writing', 'martial', 'sports', 'skating', 'accolade', 'school', 'other'];
-const LEVELS = ['school', 'zonal', 'national', 'international'];
-const SUBJECTS = ['maths', 'english', 'science', 'computer', 'gk', 'hindi', 'chinese', 'social', 'other'];
+const catalog = require('./public/catalog');
+
+// One catalog shared with the browser, so the server accepts exactly what the app offers.
+const CATEGORIES = Object.keys(catalog.CATS);
+const LEVELS = catalog.LEVELS.map(([k]) => k);
+const SUBJECTS = catalog.SUBJECTS.map(([k]) => k);
+const EVENT_KINDS = catalog.EVENT_KINDS.map(([k]) => k);
 const SESSION_DAYS = 90; // sliding: every visit renews it, so regular use never signs you out
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+// "2026-02-30" matches the pattern but is not a day; round-trip through Date to be sure.
+function isRealDate(v) {
+  if (!DATE_RE.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}
 
 const MIME_EXT = {
   'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',
@@ -47,7 +57,7 @@ const RESOURCES = {
     fields: {
       title: { type: 'str', max: 160, req: true },
       date: { type: 'date', req: true },
-      kind: { type: 'enum', values: ['contest', 'exam', 'performance', 'school', 'other'] },
+      kind: { type: 'enum', values: EVENT_KINDS },
       location: { type: 'str', max: 160 },
       status: { type: 'enum', values: ['upcoming', 'done', 'skipped'] },
       result: { type: 'str', max: 300 },
@@ -114,7 +124,7 @@ function parseFields(spec, body, partial = false) {
       out[key] = null;
       continue;
     }
-    if (rule.type === 'date' && !DATE_RE.test(v)) throw new HttpError(400, `${key} must be YYYY-MM-DD`);
+    if (rule.type === 'date' && !isRealDate(v)) throw new HttpError(400, `${key} must be YYYY-MM-DD`);
     if (rule.type === 'enum' && !rule.values.includes(v)) throw new HttpError(400, `${key} is invalid`);
     if (rule.max && v.length > rule.max) throw new HttpError(400, `${key} is too long`);
     out[key] = v;
@@ -206,6 +216,7 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
   const attempts = new Map();
   function throttle(req) {
     const now = Date.now();
+    if (attempts.size > 1000) for (const [ip, r] of attempts) if (r.reset < now) attempts.delete(ip);
     const rec = attempts.get(req.ip);
     if (!rec || rec.reset < now) { attempts.set(req.ip, { count: 0, reset: now + 15 * 60 * 1000 }); return attempts.get(req.ip); }
     return rec;
@@ -254,6 +265,7 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     const ok = bcrypt.compareSync(String(req.body.password || ''), user ? user.password_hash : DUMMY_HASH);
     if (!user || !ok) { rec.count++; throw new HttpError(401, 'Wrong email or password'); }
     attempts.delete(req.ip);
+    db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now());
     startSession(res, user.id);
     res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, child_id: user.child_id } });
   });
@@ -266,6 +278,8 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     if (!bcrypt.compareSync(String(current || ''), row.password_hash)) throw new HttpError(400, 'Current password is wrong');
     if (typeof nextPw !== 'string' || nextPw.length < 8) throw new HttpError(400, 'New password must be at least 8 characters');
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(nextPw, 10), req.user.id);
+    // A new password signs out every other device; this one stays signed in.
+    db.prepare('DELETE FROM sessions WHERE user_id = ? AND token_hash != ?').run(req.user.id, sha256(getCookie(req, 'ankur_sid') || ''));
     res.json({ ok: true });
   });
 

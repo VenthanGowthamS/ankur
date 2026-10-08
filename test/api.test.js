@@ -191,10 +191,11 @@ test('kid accounts: own profile only, read-only, Buddy facts, no parent areas', 
 test('demo seed loads a usable family and refuses to overwrite real data', async () => {
   const { seedDemo, CREDENTIALS } = require('../scripts/seed-demo');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ankur-seed-'));
+  let srv;
   try {
     seedDemo(dir);
     const app = createApp({ dataDir: dir });
-    const srv = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
+    srv = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
     const url = `http://127.0.0.1:${srv.address().port}`;
     const login = async (email, password) => {
       const r = await fetch(url + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email, password }) });
@@ -208,9 +209,8 @@ test('demo seed loads a usable family and refuses to overwrite real data', async
     const sum = await (await fetch(url + '/api/children/1/summary', { headers: { cookie: parent.cookie } })).json();
     assert.equal(sum.examsPassed, 1);
     assert.equal(sum.upcomingEvents, 6);
-    srv.close();
     assert.throws(() => seedDemo(dir), /already has accounts/);
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { srv?.close(); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('grown-ups can use a simple username, and sessions renew while in use', async () => {
@@ -278,7 +278,7 @@ test('achievements carry a level and a result; new areas are accepted', async ()
   assert.equal(ok.status, 201);
   assert.equal(ok.json.level, 'zonal');
   assert.equal(ok.json.result, 'Runner-up');
-  for (const category of ['olympiad', 'martial', 'skating', 'chinese', 'dance', 'stage', 'singing', 'writing']) {
+  for (const category of ['olympiad', 'martial', 'skating', 'chinese', 'dance', 'stage', 'singing', 'writing', 'gymnastics', 'swimming']) {
     assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category }) })).status, 201, category);
   }
   assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'sports', level: 'galaxy' }) })).status, 400, 'unknown level');
@@ -287,7 +287,31 @@ test('achievements carry a level and a result; new areas are accepted', async ()
   assert.equal(oly.json.subject, 'maths');
   assert.equal(oly.json.score, '52 / 60');
   assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'olympiad', subject: 'astrology' }) })).status, 400, 'unknown subject');
+  assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ category: 'sports', date: '2026-02-30' }) })).status, 400, 'impossible date');
   const edited = await call('PUT', `/api/entries/${ok.json.id}`, { cookie: parentCookie, body: { level: '', result: 'Champion' } });
   assert.equal(edited.json.level, null, 'level can be cleared');
   assert.equal(edited.json.result, 'Champion');
+});
+
+test('changing a password signs out other devices but keeps this one', async () => {
+  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Papa', email: 'papa@x.com', password: 'papa-pass-1', role: 'parent' } })).status, 201);
+  const login = async () => cookieOf((await call('POST', '/api/login', { body: { email: 'papa@x.com', password: 'papa-pass-1' } })).res);
+  const phone = await login();
+  const laptop = await login();
+  const r = await call('POST', '/api/me/password', { cookie: laptop, body: { current: 'papa-pass-1', next: 'papa-pass-2' } });
+  assert.equal(r.status, 200);
+  assert.equal((await call('GET', '/api/children', { cookie: laptop })).status, 200, 'this device stays signed in');
+  assert.equal((await call('GET', '/api/children', { cookie: phone })).status, 401, 'other device is signed out');
+});
+
+test('one catalog drives server validation, tabs and colours', () => {
+  const catalog = require('../public/catalog');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'public', 'style.css'), 'utf8');
+  const groups = new Set(catalog.GROUPS.map(([g]) => g));
+  for (const [key, [emoji, label, group]] of Object.entries(catalog.CATS)) {
+    assert.ok(emoji && label, key);
+    assert.ok(groups.has(group), `${key} belongs to a known tab`);
+    assert.ok(css.includes(`[data-cat="${key}"]`), `${key} has a colour`);
+  }
+  for (const [name, steps] of Object.entries(catalog.LADDERS)) assert.ok(steps.length >= 2, name);
 });

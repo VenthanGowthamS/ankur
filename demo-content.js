@@ -46,6 +46,10 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   entry('olympiad', 'SOF IMO — Level 1 (Maths)', -48, 'Zonal rank from the Student Performance Report. Qualified for Level 2.', { level: 'zonal', result: 'Zonal rank 9', subject: 'maths', score: '52 / 60' });
   entry('olympiad', 'SOF IEO — Level 1 (English)', -60, 'Strong on vocabulary, lost marks on spoken & written expression.', { level: 'school', result: 'School rank 3', subject: 'english', score: '44 / 60' });
   entry('olympiad', 'SOF NSO — Level 1 (Science)', -75, 'First science olympiad. Loved the achievers section.', { level: 'zonal', result: 'Medal of Distinction', subject: 'science', score: '48 / 60' });
+  entry('olympiad', 'SEAMO — Paper B (Maths)', -90, 'Twenty multiple-choice and five open-ended questions. Finished with time to spare.', { level: 'international', result: 'Bronze award', subject: 'maths', score: '68 / 100' });
+  entry('olympiad', 'ICAS English', -100, 'Reading comprehension was her strongest part.', { level: 'international', result: 'Distinction', subject: 'english', score: '34 / 40' });
+  entry('olympiad', 'Math Kangaroo', -110, 'Tricky puzzles about shapes and patterns. Loved it.', { level: 'international', result: 'Silver award', subject: 'maths', score: '84 / 120' });
+  entry('olympiad', 'SOF NCO — Level 1 (Cyber)', -120, 'Questions on computers, the internet and logic.', { level: 'school', result: 'School rank 2', subject: 'computer', score: '41 / 50' });
   // Coding and robotics classes
   entry('coding', 'First Scratch game: Catch the stars', -12, 'Built it herself with sprites, a score counter and a timer. Showed it to the whole family.', { result: 'Block-coding level complete' });
   entry('coding', 'Python turtle drawing', -40, 'Wrote loops to draw a spiral flower. Debugged one indentation error alone.', { result: 'Started Python basics' });
@@ -67,6 +71,10 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   entry('sports', 'Football — zonal tournament', -28, 'Scored a goal in the semi-final. Team lost the final on penalties.', { level: 'zonal', result: 'Runner-up (team)' });
   entry('sports', 'Football — national selection trials', -70, 'Made the shortlist from over 200 children.', { level: 'national', result: 'Shortlisted' });
   entry('sports', 'International youth football festival', -95, 'Played three matches against teams from four countries.', { level: 'international', result: 'Team participant' });
+  entry('swimming', 'SwimSafer Stage 2', -24, 'Treaded water for one minute and swam 25 m on her own.', { result: 'Stage 2 certificate' });
+  entry('swimming', 'Inter-school swim meet — 25 m freestyle', -66, 'Personal best time. Cheered on her whole team.', { level: 'zonal', result: '4th place', score: '28.4 s' });
+  entry('gymnastics', 'Gymnastics Level 1 assessment', -30, 'Cartwheel, forward roll and a steady balance on the beam.', { result: 'Level 1 passed' });
+  entry('gymnastics', 'Gymnastics club showcase', -85, 'Floor routine with her group, to music.', { level: 'school', result: 'Best presentation' });
   entry('skating', 'Skating — Level 2 badge', -35, 'Learned backward crossovers this term.', { result: 'Level 2 passed' });
   entry('skating', 'Skating showcase', -75, 'Performed a two-minute routine to music in front of parents.', { level: 'school', result: 'Gold medal' });
 
@@ -99,6 +107,8 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   activity('Karate', 'martial', 'Tuesdays 6pm', 'Sensei Lee');
   activity('Football', 'sports', 'Saturdays 4pm', 'Zone team');
   activity('Skating', 'skating', 'Sundays 9am', null);
+  activity('Swimming (SwimSafer)', 'swimming', 'Saturdays 8am', 'Swim school');
+  activity('Gymnastics', 'gymnastics', 'Wednesdays 6pm', 'Gym club');
 }
 
 // Removes everything flagged as sample for one child, including uploaded files. Returns the file names to delete.
