@@ -39,9 +39,9 @@ test('fresh install needs setup and blocks everything else', async () => {
 });
 
 test('setup creates the parent, first child and exam ladder, then locks', async () => {
-  const bad = await call('POST', '/api/setup', { body: { name: 'V', email: 'v@x.com', password: 'short', childName: 'Roshna' } });
+  const bad = await call('POST', '/api/setup', { body: { name: 'V', email: 'v@x.com', password: 'short', childName: 'Mira' } });
   assert.equal(bad.status, 400);
-  const ok = await call('POST', '/api/setup', { body: { name: 'Venthan', email: 'v@x.com', password: 'longenough1', childName: 'Roshna', childDob: '2019-03-01' } });
+  const ok = await call('POST', '/api/setup', { body: { name: 'Venthan', email: 'v@x.com', password: 'longenough1', childName: 'Mira', childDob: '2019-03-01' } });
   assert.equal(ok.status, 201);
   parentCookie = cookieOf(ok.res);
   assert.match(ok.res.headers.get('set-cookie'), /HttpOnly/);
@@ -156,12 +156,12 @@ test('kid accounts: own profile only, read-only, Buddy facts, no parent areas', 
   mine.append('files', new Blob(['mine'], { type: 'image/png' }), 'm.png');
   const mineEntry = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mine });
 
-  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Roshna', email: 'Ro shna', password: 'sprout1', role: 'child', childId: 1 } })).status, 400, 'bad username');
-  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Roshna', email: 'roshna', password: 'abc', role: 'child', childId: 1 } })).status, 400, 'short password');
-  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Roshna', email: 'roshna', password: 'sprout1', role: 'child' } })).status, 400, 'needs a child');
-  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Roshna', email: 'roshna', password: 'sprout1', role: 'child', childId: 1 } })).status, 201);
+  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Mira', email: 'Mi ra', password: 'sprout1', role: 'child', childId: 1 } })).status, 400, 'bad username');
+  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Mira', email: 'mira', password: 'abc', role: 'child', childId: 1 } })).status, 400, 'short password');
+  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Mira', email: 'mira', password: 'sprout1', role: 'child' } })).status, 400, 'needs a child');
+  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Mira', email: 'mira', password: 'sprout1', role: 'child', childId: 1 } })).status, 201);
 
-  const login = await call('POST', '/api/login', { body: { email: 'Roshna', password: 'sprout1' } });
+  const login = await call('POST', '/api/login', { body: { email: 'Mira', password: 'sprout1' } });
   assert.equal(login.status, 200);
   assert.equal(login.json.user.role, 'child');
   const kid = cookieOf(login.res);
@@ -183,7 +183,7 @@ test('kid accounts: own profile only, read-only, Buddy facts, no parent areas', 
 
   const buddy = await call('GET', '/api/children/1/buddy', { cookie: kid });
   assert.equal(buddy.status, 200);
-  assert.equal(buddy.json.name, 'Roshna');
+  assert.equal(buddy.json.name, 'Mira');
   assert.ok(buddy.json.total >= 1);
   assert.equal(buddy.json.lastPassed.level, 'Pre A1 Starters');
 });

@@ -43,7 +43,7 @@ What actually matters instead:
 
 ## How we find out cheaply
 
-Use it ourselves for **6–8 weeks** for Roshna. Keep going only if we're still adding moments without nagging ourselves. If not, we've lost little and learned a lot.
+Use it ourselves for **6–8 weeks** for our daughter. Keep going only if we're still adding moments without nagging ourselves. If not, we've lost little and learned a lot.
 
 ## What makes it earn its place
 

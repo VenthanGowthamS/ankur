@@ -543,7 +543,7 @@ function userForm() {
     title: 'Invite someone', submitLabel: 'Create account', values: { role: 'family' },
     fields: [
       { name: 'name', label: 'Name', required: true, max: 80 },
-      { name: 'email', label: 'Email — or a simple username for a child', required: true, hint: 'Kids sign in with a short username like “roshna”.' },
+      { name: 'email', label: 'Email — or a simple username for a child', required: true, hint: 'Kids sign in with a short username like “mira”.' },
       { name: 'password', label: 'Password (8+ characters; 6+ for a child)', required: true, type: 'text', autocomplete: 'off' },
       { name: 'role', label: 'Access', type: 'select', options: [['family', 'Family — view only'], ['child', `Child — ${(child() || {}).name || 'kid'}’s own login, view only`], ['parent', 'Parent — can edit']] },
     ],
