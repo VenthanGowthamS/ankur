@@ -420,3 +420,18 @@ test('university list is well-formed: known region, official https link, real co
   assert.equal(AGE_GUIDE.length, 3);
   assert.ok(fs.readFileSync(path.join(__dirname, '..', 'public', 'worldmap.js'), 'utf8').includes('window.ANKUR_WORLD = "M'), 'map outline present');
 });
+
+test('moments can say who made them (own work, with help, AI-assisted) and only accept those values', async () => {
+  const mk = (extra) => { const f = new FormData(); f.set('title', 'Story'); f.set('category', 'writing'); f.set('date', '2026-10-01'); Object.entries(extra).forEach(([k, v]) => f.set(k, v)); return f; };
+  const made = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ authorship: 'ai' }) });
+  assert.equal(made.status, 201);
+  assert.equal(made.json.authorship, 'ai');
+  assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ authorship: 'robot' }) })).status, 400, 'unknown label');
+  const plain = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({}) });
+  assert.equal(plain.json.authorship, null, 'not stated by default');
+  const own = await call('PUT', `/api/entries/${made.json.id}`, { cookie: parentCookie, body: { authorship: 'own' } });
+  assert.equal(own.json.authorship, 'own');
+  const cleared = await call('PUT', `/api/entries/${made.json.id}`, { cookie: parentCookie, body: { authorship: '' } });
+  assert.equal(cleared.json.authorship, null, 'can be cleared');
+  for (const e of [made, plain]) await call('DELETE', `/api/entries/${e.json.id}`, { cookie: parentCookie });
+});

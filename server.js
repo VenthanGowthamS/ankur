@@ -14,6 +14,7 @@ const catalog = require('./public/catalog');
 const CATEGORIES = Object.keys(catalog.CATS);
 const LEVELS = catalog.LEVELS.map(([k]) => k);
 const SUBJECTS = catalog.SUBJECTS.map(([k]) => k);
+const AUTHORSHIP = catalog.AUTHORSHIP.map(([k]) => k);
 const EVENT_KINDS = catalog.EVENT_KINDS.map(([k]) => k);
 const STAGES = catalog.PATHWAY.map((s) => s.key);
 const GOAL_STATUS = catalog.GOAL_STATUS.map(([k]) => k);
@@ -106,6 +107,7 @@ const ENTRY_FIELDS = {
   subject: { type: 'enum', values: SUBJECTS },
   score: { type: 'str', max: 40 },
   role: { type: 'str', max: 60 },
+  authorship: { type: 'enum', values: AUTHORSHIP },
 };
 
 const CHILD_FIELDS = {
@@ -431,8 +433,8 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     try {
       const v = parseFields(ENTRY_FIELDS, req.body);
       const id = tx(db, () => {
-        const r = db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, subject, score, role, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(req.child.id, v.category, v.title, v.date, v.notes ?? null, v.level ?? null, v.result ?? null, v.subject ?? null, v.score ?? null, v.role ?? null, req.user.id);
+        const r = db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, subject, score, role, authorship, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          .run(req.child.id, v.category, v.title, v.date, v.notes ?? null, v.level ?? null, v.result ?? null, v.subject ?? null, v.score ?? null, v.role ?? null, v.authorship ?? null, req.user.id);
         saveMedia(Number(r.lastInsertRowid), req.files);
         return Number(r.lastInsertRowid);
       });

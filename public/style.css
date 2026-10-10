@@ -693,3 +693,10 @@ body::before {
 .zen-orb.out { transform: scale(.72); }
 .zen-word { font: 600 .95rem var(--serif); color: #12301f; padding: 0 10px; }
 @media (prefers-reduced-motion: reduce) { .zen { animation: none; } .zen-orb { transition-duration: 0s; } }
+
+/* ---------- confetti + "who made this" labels ---------- */
+.confetti { position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 80; }
+.win.made { background: var(--surface); border: 1px solid var(--line); }
+.win.made.ai { background: color-mix(in srgb, var(--lilac) 35%, transparent); border-color: color-mix(in srgb, var(--lilac) 70%, var(--line)); }
+.win.made.help { background: color-mix(in srgb, var(--sky) 28%, transparent); border-color: color-mix(in srgb, var(--sky) 60%, var(--line)); }
+.win.made.own { background: var(--leaf-soft); border-color: color-mix(in srgb, var(--leaf) 40%, var(--line)); color: var(--leaf-d); }

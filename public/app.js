@@ -2,8 +2,9 @@
 /* Kaizen Folio — a private growth portfolio and extra-curricular tracker. Vanilla JS, no build step.
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
-const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE } = window.ANKUR; // from catalog.js
+const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, AUTHORSHIP, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE } = window.ANKUR; // from catalog.js
 const subjectLabel = (k) => (SUBJECTS.find((x) => x[0] === k) || [, k])[1];
+const authorLabel = (k) => { const a = AUTHORSHIP.find((x) => x[0] === k); return a ? `${a[1]} ${a[2]}` : ''; };
 const levelLabel = (k) => (LEVELS.find((x) => x[0] === k) || [, k])[1];
 const groupOf = (cat) => (CATS[cat] || CATS.other)[2];
 // "52 / 60" -> "52 / 60 · 87%"; anything else is shown as typed.
@@ -244,6 +245,37 @@ function renderAuth(needsSetup) {
   draw();
 }
 
+/* ---------- confetti: a short burst of celebration (skipped when the device asks for less motion) ---------- */
+function confetti() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const cv = document.createElement('canvas');
+  cv.className = 'confetti'; cv.setAttribute('aria-hidden', 'true');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.round(innerWidth * dpr); cv.height = Math.round(innerHeight * dpr);
+  document.body.append(cv);
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const colours = ['#e8a33d', '#4f7f3a', '#f6a8c2', '#7cc4e8', '#c4b0f2', '#ffd37a', '#9fe0b4'];
+  const bits = Array.from({ length: 140 }, () => ({
+    x: innerWidth / 2 + (Math.random() - 0.5) * 120, y: innerHeight * 0.35,
+    vx: (Math.random() - 0.5) * 16, vy: -Math.random() * 14 - 4,
+    w: 6 + Math.random() * 6, h: 4 + Math.random() * 5, r: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.4,
+    c: colours[Math.floor(Math.random() * colours.length)],
+  }));
+  const start = performance.now();
+  const frame = (now) => {
+    const age = now - start;
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    for (const p of bits) {
+      p.vy += 0.35; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - age / 2600);
+      ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+    }
+    if (age < 2600) requestAnimationFrame(frame); else cv.remove();
+  };
+  requestAnimationFrame(frame);
+}
+
 /* ---------- theme: Light, or Midnight (dark, glowing). Saved per device. ---------- */
 function themeButton() {
   const root = document.documentElement;
@@ -362,7 +394,8 @@ function buildEntry(e, c, emoji, label) {
         h('span', { class: 'badge' }, `${emoji} ${label}`),
         h('h3', null, e.title),
         h('div', { class: 'when' }, fmtDate(e.date)),
-        (e.level || e.result || e.subject || e.score || e.role) && h('div', { class: 'wins' },
+        (e.level || e.result || e.subject || e.score || e.role || e.authorship) && h('div', { class: 'wins' },
+          e.authorship && h('span', { class: `win made ${e.authorship}` }, authorLabel(e.authorship)),
           e.role && h('span', { class: 'win role' }, `👑 ${e.role}`),
           e.subject && h('span', { class: 'win subject' }, subjectLabel(e.subject)),
           e.score && h('span', { class: 'win score' }, `📝 ${scoreText(e)}`),
@@ -416,22 +449,25 @@ function entryForm(c, entry) {
       { name: 'level', label: 'Level of the event', type: 'select', options: [['', '— not a competition —'], ...LEVELS] },
       { name: 'result', label: 'Result — medal, rank, belt, badge', max: 120, hint: 'e.g. Gold medal · Zonal rank 9 · Honourable mention · Yellow belt' },
       { name: 'role', label: 'Role — if she led or organised it', max: 60, list: 'role-names', hint: 'e.g. Team captain, Class monitor, Club leader, MUN delegate — leave blank if she just took part' },
+      { name: 'authorship', label: 'Who made this?', type: 'select', options: [['', '— not stated —'], ...AUTHORSHIP.map(([k, e, l]) => [k, `${e} ${l}`])], hint: 'Honest records matter later: say if it was their own work, made with help, or AI-assisted.' },
       { name: 'notes', label: 'Notes — scores, feedback, how it felt', type: 'textarea', max: 5000 },
       { name: 'files', label: editing ? 'Add more photos, recordings or PDFs' : 'Photos, recordings, videos or PDFs', type: 'files', hint: 'Up to 8 files, 80 MB each.' },
     ],
     extra: [h('datalist', { id: 'olympiad-names' }, OLYMPIADS.map((o) => h('option', { value: o }))),
       h('datalist', { id: 'role-names' }, ROLES.map((r) => h('option', { value: r }))), existing],
     onSubmit: async ({ values, files }) => {
+      let saved;
       if (editing) {
-        await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes, level: values.level, result: values.result, subject: values.subject, score: values.score, role: values.role });
+        saved = await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes, level: values.level, result: values.result, subject: values.subject, score: values.score, role: values.role, authorship: values.authorship });
         if (files.length) { const fd = new FormData(); files.forEach((f) => fd.append('files', f)); await api('POST', `/api/entries/${entry.id}/media`, fd); }
       } else {
         const fd = new FormData();
-        ['title', 'category', 'date', 'notes', 'level', 'result', 'subject', 'score', 'role'].forEach((k) => fd.set(k, values[k]));
+        ['title', 'category', 'date', 'notes', 'level', 'result', 'subject', 'score', 'role', 'authorship'].forEach((k) => fd.set(k, values[k]));
         files.forEach((f) => fd.append('files', f));
-        await api('POST', `/api/children/${c.id}/entries`, fd);
+        saved = await api('POST', `/api/children/${c.id}/entries`, fd);
       }
       refresh();
+      if (!editing && saved && (saved.result || saved.level || saved.role || saved.category === 'accolade')) setTimeout(confetti, 250);
     },
     onDelete: editing ? async () => { await api('DELETE', `/api/entries/${entry.id}`); closeModal(); refresh(); } : null,
   });
@@ -584,8 +620,8 @@ function bookPages(c, entries, ladder, activities, opts, goals = []) {
             h('div', { class: 'b-when' }, fmtDate(e.date)),
             h('div', { class: 'b-body' },
               h('h4', null, e.title),
-              (e.result || e.level || e.score || e.subject || e.role) && h('div', { class: 'b-badges' },
-                [e.role && `👑 ${e.role}`, e.subject && subjectLabel(e.subject), e.score && `📝 ${scoreText(e)}`, e.result && `🏅 ${e.result}`, e.level && levelLabel(e.level)].filter(Boolean).map((t) => h('span', null, t))),
+              (e.result || e.level || e.score || e.subject || e.role || e.authorship) && h('div', { class: 'b-badges' },
+                [e.authorship && authorLabel(e.authorship), e.role && `👑 ${e.role}`, e.subject && subjectLabel(e.subject), e.score && `📝 ${scoreText(e)}`, e.result && `🏅 ${e.result}`, e.level && levelLabel(e.level)].filter(Boolean).map((t) => h('span', null, t))),
               opts.notes && e.notes && h('p', null, e.notes),
               imgs.length > 0 && h('div', { class: 'b-photos' }, imgs.map((m) => h('img', { src: `/media/${m.id}`, alt: m.original || '' }))),
               extras > 0 && h('div', { class: 'b-more' }, `+ ${extras} recording${extras > 1 ? 's' : ''} or document${extras > 1 ? 's' : ''} kept in Kaizen Folio`)));
@@ -1360,7 +1396,7 @@ async function mountBuddy(c, openWith) {
       talk(`Remember “${r.title}” from ${fmtDate(r.date)}? That was a good one!`, r.imageId, r.title);
     }]);
     topics.push(['🏆 What am I proud of?', () => {
-      if (f.lastPassed) talk(`You passed ${f.lastPassed.level}${f.lastPassed.score ? ` with ${f.lastPassed.score}` : ''}! 🎉`);
+      if (f.lastPassed) { talk(`You passed ${f.lastPassed.level}${f.lastPassed.score ? ` with ${f.lastPassed.score}` : ''}! 🎉`); confetti(); }
       else talk(`Your newest moment is “${f.latest.title}”. Keep going!`, f.latest.imageId, f.latest.title);
     }]);
   }
@@ -1372,7 +1408,7 @@ async function mountBuddy(c, openWith) {
     topics.push([`${emoji} Show my ${label}`, () => { talk(`Here are your ${label} moments!`); goTo(cat); }]);
   });
   if (state.filter !== 'all') topics.push(['🌈 Show everything', () => goTo('all')]);
-  topics.push(['🎉 Cheer me on', () => talk(pick(CHEERS))]);
+  topics.push(['🎉 Cheer me on', () => { talk(pick(CHEERS)); confetti(); }]);
   topics.push(['🧘 Zen breath', zenBreath]);
   topics.push(['🎭 Pick my friend', choose]);
 

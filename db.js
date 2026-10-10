@@ -161,6 +161,7 @@ function openDb(dataDir) {
   ensureColumn(db, 'entries', 'subject', 'TEXT');
   ensureColumn(db, 'entries', 'score', 'TEXT');
   ensureColumn(db, 'entries', 'role', 'TEXT'); // leadership/responsibility, e.g. Team captain, Class monitor
+  ensureColumn(db, 'entries', 'authorship', 'TEXT'); // who made it: own | help | ai (NULL = not stated)
   ensureColumn(db, 'children', 'psle_year', 'INTEGER'); // optional; otherwise estimated from date of birth
   ensureColumn(db, 'children', 'buddy_id', 'INTEGER'); // the Buddy picture this child chose; NULL = Ankur the sprout
   return db;

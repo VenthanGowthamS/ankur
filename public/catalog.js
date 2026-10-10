@@ -271,7 +271,11 @@
     ['17–18', 'JC / IB', 'Subjects that fit the course (e.g. H2 Maths for engineering). SAT/ACT for the US; admissions tests for Oxford, Cambridge and Imperial; essays and personal statement; applications — UK by mid-October, US from November.'],
   ];
 
-  const catalog = Object.freeze({ GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE });
+  // Who made the work. Keeping this honest from the start makes the record trustworthy later
+  // (the idea behind open "AI disclosure" labels): own work, with help from a person, or AI-assisted.
+  const AUTHORSHIP = [['own', '✍️', 'Own work'], ['help', '🤝', 'With help'], ['ai', '🤖', 'AI-assisted']];
+
+  const catalog = Object.freeze({ GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, AUTHORSHIP, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE });
   if (typeof module === 'object' && module.exports) module.exports = catalog;
   else root.ANKUR = catalog;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
