@@ -435,3 +435,135 @@ test('moments can say who made them (own work, with help, AI-assisted) and only 
   assert.equal(cleared.json.authorship, null, 'can be cleared');
   for (const e of [made, plain]) await call('DELETE', `/api/entries/${e.json.id}`, { cookie: parentCookie });
 });
+
+test('learning story: qualities shown and the next small step', async () => {
+  const mk = (extra) => { const f = new FormData(); f.set('title', 'Puzzle'); f.set('category', 'olympiad'); f.set('date', '2026-10-02'); Object.entries(extra).forEach(([k, v]) => f.set(k, v)); return f; };
+  const made = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ qualities: 'curious,persist', next_step: 'Try the hard round next term' }) });
+  assert.equal(made.status, 201);
+  assert.equal(made.json.qualities, 'curious,persist');
+  assert.equal(made.json.next_step, 'Try the hard round next term');
+  assert.equal(made.json.next_done, 0);
+  assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ qualities: 'curious,genius' }) })).status, 400, 'unknown quality');
+  assert.equal((await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: mk({ qualities: 'curious,persist,brave,kind,team' }) })).status, 400, 'at most 4');
+  const done = await call('PUT', `/api/entries/${made.json.id}`, { cookie: parentCookie, body: { next_done: true, qualities: ['brave', 'brave', 'focus'] } });
+  assert.equal(done.json.next_done, 1);
+  assert.equal(done.json.qualities, 'brave,focus', 'arrays accepted, duplicates dropped');
+  assert.equal((await call('PUT', `/api/entries/${made.json.id}`, { cookie: familyCookie, body: { next_done: false } })).status, 403, 'family is view-only');
+  const kid = cookieOf((await call('POST', '/api/login', { body: { email: 'mira', password: 'sprout1' } })).res);
+  const facts = await call('GET', '/api/children/1/buddy', { cookie: kid });
+  assert.equal(facts.json.qualities.brave, 1, 'Buddy knows her qualities');
+  await call('DELETE', `/api/entries/${made.json.id}`, { cookie: parentCookie });
+});
+
+test("child's own words: only the child (own moments) or a parent can write them", async () => {
+  const f = new FormData(); f.set('title', 'Dance show'); f.set('category', 'dance'); f.set('date', '2026-10-03');
+  const mine = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: f });
+  const kids = await call('GET', '/api/children', { cookie: parentCookie });
+  const sibling = kids.json.find((c) => c.id !== 1);
+  const g = new FormData(); g.set('title', 'Sibling moment'); g.set('category', 'art'); g.set('date', '2026-10-03');
+  const theirs = await call('POST', `/api/children/${sibling.id}/entries`, { cookie: parentCookie, form: g });
+  const kid = cookieOf((await call('POST', '/api/login', { body: { email: 'mira', password: 'sprout1' } })).res);
+
+  const said = await call('PUT', `/api/entries/${mine.json.id}/words`, { cookie: kid, body: { words: 'I was scared but I did it!', feeling: 'proud' } });
+  assert.equal(said.status, 200);
+  assert.equal(said.json.kid_words, 'I was scared but I did it!');
+  assert.equal(said.json.kid_feeling, 'proud');
+  assert.equal((await call('PUT', `/api/entries/${mine.json.id}/words`, { cookie: kid, body: { words: 'x', feeling: 'angry' } })).status, 400, 'unknown feeling');
+  assert.equal((await call('PUT', `/api/entries/${mine.json.id}/words`, { cookie: kid, body: { words: 'x'.repeat(501) } })).status, 400, 'too long');
+  assert.equal((await call('PUT', `/api/entries/${theirs.json.id}/words`, { cookie: kid, body: { words: 'hi' } })).status, 403, "not a sibling's moment");
+  assert.equal((await call('PUT', `/api/entries/${mine.json.id}/words`, { cookie: familyCookie, body: { words: 'hi' } })).status, 403, 'family cannot');
+  assert.equal((await call('PUT', `/api/entries/${mine.json.id}`, { cookie: kid, body: { title: 'hacked' } })).status, 403, 'kid still cannot edit the moment itself');
+  const cleared = await call('PUT', `/api/entries/${mine.json.id}/words`, { cookie: parentCookie, body: { words: '', feeling: '' } });
+  assert.equal(cleared.json.kid_words, null);
+  assert.equal(cleared.json.kid_feeling, null);
+  for (const e of [mine, theirs]) await call('DELETE', `/api/entries/${e.json.id}`, { cookie: parentCookie });
+});
+
+test('family cheers: family and parents post, kids read, parents moderate', async () => {
+  const f = new FormData(); f.set('title', 'Swim gala'); f.set('category', 'swimming'); f.set('date', '2026-10-04');
+  const e = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: f });
+  const kid = cookieOf((await call('POST', '/api/login', { body: { email: 'mira', password: 'sprout1' } })).res);
+
+  const fromGran = await call('POST', `/api/entries/${e.json.id}/cheers`, { cookie: familyCookie, body: { body: 'So proud of you, kanna!' } });
+  assert.equal(fromGran.status, 201);
+  assert.equal(fromGran.json.cheers.length, 1);
+  assert.equal(fromGran.json.cheers[0].name, 'Grandma');
+  const fromParent = await call('POST', `/api/entries/${e.json.id}/cheers`, { cookie: parentCookie, body: { body: 'Great kick!' } });
+  assert.equal(fromParent.json.cheers.length, 2);
+  assert.equal((await call('POST', `/api/entries/${e.json.id}/cheers`, { cookie: kid, body: { body: 'me' } })).status, 403, 'kids add their own words instead');
+  assert.equal((await call('POST', `/api/entries/${e.json.id}/cheers`, { cookie: familyCookie, body: { body: '  ' } })).status, 400);
+  assert.equal((await call('POST', `/api/entries/${e.json.id}/cheers`, { cookie: familyCookie, body: { body: 'x'.repeat(281) } })).status, 400);
+  assert.equal((await call('POST', `/api/entries/${e.json.id}/cheers`)).status, 401);
+
+  const seen = await call('GET', '/api/children/1/entries', { cookie: kid });
+  assert.equal(seen.json.find((x) => x.id === e.json.id).cheers.length, 2, 'the kid sees the cheers');
+
+  const [granCheer, parentCheer] = fromParent.json.cheers;
+  assert.equal((await call('DELETE', `/api/cheers/${parentCheer.id}`, { cookie: familyCookie })).status, 403, "not someone else's");
+  assert.equal((await call('DELETE', `/api/cheers/${granCheer.id}`, { cookie: familyCookie })).status, 200, 'own cheer');
+  assert.equal((await call('DELETE', `/api/cheers/${parentCheer.id}`, { cookie: parentCookie })).status, 200);
+  await call('DELETE', `/api/entries/${e.json.id}`, { cookie: parentCookie });
+});
+
+// Reads a stored (uncompressed) ZIP back via its central directory, checking every CRC.
+function readZip(buf) {
+  const zlib = require('zlib');
+  const eocd = buf.length - 22;
+  assert.equal(buf.readUInt32LE(eocd), 0x06054b50, 'end of central directory');
+  const count = buf.readUInt16LE(eocd + 10);
+  let p = buf.readUInt32LE(eocd + 16);
+  const files = {};
+  for (let i = 0; i < count; i++) {
+    assert.equal(buf.readUInt32LE(p), 0x02014b50);
+    const crc = buf.readUInt32LE(p + 16), size = buf.readUInt32LE(p + 24), nameLen = buf.readUInt16LE(p + 28);
+    const extraLen = buf.readUInt16LE(p + 30), commentLen = buf.readUInt16LE(p + 32), local = buf.readUInt32LE(p + 42);
+    const name = buf.subarray(p + 46, p + 46 + nameLen).toString('utf8');
+    assert.equal(buf.readUInt32LE(local), 0x04034b50, `local header for ${name}`);
+    const start = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
+    const data = buf.subarray(start, start + size);
+    assert.equal(zlib.crc32(data) >>> 0, crc, `crc of ${name}`);
+    files[name] = data;
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  return files;
+}
+
+test('download everything: a ZIP with every record, the original files and an offline page', async () => {
+  const f = new FormData(); f.set('title', 'Peacock <b>painting</b>'); f.set('category', 'art'); f.set('date', '2026-09-21'); f.set('qualities', 'creative');
+  f.append('files', new Blob([Buffer.from('peacock-bytes')], { type: 'image/png' }), 'peacock.png');
+  const e = await call('POST', '/api/children/1/entries', { cookie: parentCookie, form: f });
+  await call('POST', `/api/entries/${e.json.id}/cheers`, { cookie: familyCookie, body: { body: 'Beautiful colours' } });
+
+  assert.equal((await call('GET', '/api/export', { cookie: familyCookie })).status, 403, 'parents only');
+  assert.equal((await call('GET', '/api/export')).status, 401);
+  const res = await fetch(`${base}/api/export`, { headers: { cookie: parentCookie } });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('content-type'), 'application/zip');
+  assert.match(res.headers.get('content-disposition'), /attachment; filename="kaizen-folio-\d{4}-\d{2}-\d{2}\.zip"/);
+  const files = readZip(Buffer.from(await res.arrayBuffer()));
+
+  assert.ok(files['README.txt'] && files['index.html'] && files['kaizen-folio.json']);
+  const data = JSON.parse(files['kaizen-folio.json']);
+  const exported = data.children.find((c) => c.id === 1).entries.find((x) => x.title === 'Peacock <b>painting</b>');
+  assert.deepEqual(exported.qualities, ['creative']);
+  assert.equal(exported.cheers[0].body, 'Beautiful colours');
+  assert.equal(files[exported.media[0].path].toString(), 'peacock-bytes', 'the original file, byte for byte');
+  const json = files['kaizen-folio.json'].toString();
+  assert.ok(!json.includes('password') && !json.includes('token'), 'no secrets');
+  const html = files['index.html'].toString();
+  assert.ok(html.includes('Peacock &lt;b&gt;painting&lt;/b&gt;') && !html.includes('<b>painting</b>'), 'titles are escaped in the offline page');
+  await call('DELETE', `/api/entries/${e.json.id}`, { cookie: parentCookie });
+});
+
+// Keep last: it deliberately trips the login limit for this test client.
+test('login limits apply per account, not just per IP', async () => {
+  assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Uncle', email: 'uncle@x.com', password: 'uncle-pass1', role: 'family' } })).status, 201);
+  const guess = async (i) => assert.equal((await call('POST', '/api/login', { body: { email: 'uncle@x.com', password: `guess-${i}` } })).status, 401);
+  for (let i = 0; i < 9; i++) await guess(i);
+  // A real sign-in from the same network clears the per-IP count (families share one IP)...
+  assert.equal((await call('POST', '/api/login', { body: { email: 'g@x.com', password: 'grandma-pass' } })).status, 200);
+  await guess(9);
+  // ...but the account itself stays locked after 10 wrong guesses, even with the right password.
+  assert.equal((await call('POST', '/api/login', { body: { email: 'UNCLE@x.com', password: 'uncle-pass1' } })).status, 429, 'account locked, any capitalisation');
+  assert.equal((await call('POST', '/api/login', { body: { email: 'g@x.com', password: 'grandma-pass' } })).status, 200, 'other accounts are not affected');
+});

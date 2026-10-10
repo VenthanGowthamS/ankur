@@ -28,7 +28,20 @@ A private growth portfolio, **extra-curricular tracker** and parent dashboard fo
 - **PDF portfolio** — one tap builds an A4 book: cover, highlights (biggest stage first), olympiad record with best and average % per subject, levels and belts, current classes, then every moment with photos. Filter by tab and dates, then *Save as PDF*. It uses the browser's print engine, so Hindi, Chinese and emoji come out right.
 - **Parent dashboard** — upcoming contests & exams, activities (Hindi tuition, art class, …) and an **exam ladder** (Cambridge pre-seeded; one-tap ladders for Mandarin YCT/HSK, ICAS and SASMO awards, SwimSafer, gymnastics, dance, drama and music grades, belts, coding and robotics; add any track).
 - **Kid login + Buddy** — each child can have a view-only login (fenced to their own profile) with a friendly, tappable sprout buddy. Parents don't see it. See [docs/WHY.md](docs/WHY.md). Parents can add their own **buddy pictures** (a favourite character or toy, named by you) in the Family tab, and the child picks one by tapping Buddy → *Change my buddy*. Pictures are private family uploads, never part of this repo.
-- **Multi-child ready**, installable on a phone (PWA), light/dark mode.
+- **Learning stories, Kaizen-style** — each moment records more than the medal:
+  - 💛 **Qualities shown** (curiosity, persistence, courage, creativity, kindness, teamwork, focus, bouncing back), summed up on the portfolio, the dashboard and the PDF.
+  - 🌱 **Next small step** — one doable thing to try next; the dashboard lists open steps to tick off.
+  - ✏️ **In her own words** — the child (or a parent, typing what she said) adds how it felt and what she wants to remember. The only text a kid login can write, and only on her own moments.
+  - 💬 **Family cheers** — grandparents and parents leave short notes the child can read; parents can remove any cheer.
+- **Download everything** — *Family → Download*: one ZIP with every record as JSON, the original photos and files, and an `index.html` that opens offline. No passwords or sessions are included.
+- **Multi-child ready**, installable on a phone (PWA), light and Midnight themes.
+
+### Ideas borrowed from around the world
+
+- **Learning stories** (New Zealand's *Te Whāriki*, as used by Storypark): notice the moment, recognise the learning, respond with a next step — and include the child's voice and the family's voice.
+- **Singapore MOE's holistic reporting**: report books dropped class and level positions to reduce comparison; lower-primary awards now recognise qualities like diligence and curiosity. So qualities sit next to results here.
+- **Growth-mindset research** (Carol Dweck): praise effort, strategy and bouncing back rather than "being smart" — hence the cheer suggestions and the Bounced back quality.
+- **Keepy**: relatives commenting on a child's work keeps the family involved — hence cheers.
 
 ## Screens (sample data)
 
@@ -75,6 +88,7 @@ On first visit you'll be asked to create the parent account and the first child.
 | `ANKUR_DATA_DIR` | Where the SQLite DB and uploads live (default `./data`) |
 | `COOKIE_SECURE=1` | Mark the session cookie `Secure` — **set this behind HTTPS** |
 | `TRUST_PROXY=1` | Trust one reverse proxy hop (for correct client IPs behind nginx/Caddy) |
+| `TZ` | The family's time zone, e.g. `TZ=Asia/Singapore`, so "today" is your day, not UTC's |
 
 ## Deploying on AWS (outline)
 

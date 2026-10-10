@@ -275,7 +275,17 @@
   // (the idea behind open "AI disclosure" labels): own work, with help from a person, or AI-assisted.
   const AUTHORSHIP = [['own', '✍️', 'Own work'], ['help', '🤝', 'With help'], ['ai', '🤖', 'AI-assisted']];
 
-  const catalog = Object.freeze({ GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, AUTHORSHIP, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE });
+  // Qualities a moment shows: the "how", not just the medal. Drawn from what MOE now recognises in lower primary
+  // instead of marks (diligence, curiosity, collaboration, enthusiasm) and from growth-mindset research
+  // (praise effort, strategy and bouncing back). Up to 4 per moment.
+  const QUALITIES = [
+    ['curious', '🔍', 'Curiosity'], ['persist', '💪', 'Persistence'], ['brave', '🦁', 'Courage'], ['creative', '🎨', 'Creativity'],
+    ['kind', '💛', 'Kindness'], ['team', '🤝', 'Teamwork'], ['focus', '🎯', 'Focus'], ['bounce', '🌱', 'Bounced back'],
+  ];
+  // How the child felt, in their own words ("child voice", from learning stories).
+  const FEELINGS = [['proud', '🤩', 'Proud'], ['happy', '😊', 'Happy'], ['calm', '😌', 'Calm'], ['tricky', '😤', 'It was tricky'], ['nervous', '😬', 'Nervous']];
+
+  const catalog = Object.freeze({ GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, AUTHORSHIP, QUALITIES, FEELINGS, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE });
   if (typeof module === 'object' && module.exports) module.exports = catalog;
   else root.ANKUR = catalog;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

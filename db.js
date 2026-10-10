@@ -97,6 +97,14 @@ CREATE TABLE IF NOT EXISTS goals (
   is_sample INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS cheers (
+  id INTEGER PRIMARY KEY,
+  entry_id INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_cheers_entry ON cheers(entry_id);
 CREATE TABLE IF NOT EXISTS meta (
   key TEXT PRIMARY KEY,
   value TEXT
@@ -162,6 +170,12 @@ function openDb(dataDir) {
   ensureColumn(db, 'entries', 'score', 'TEXT');
   ensureColumn(db, 'entries', 'role', 'TEXT'); // leadership/responsibility, e.g. Team captain, Class monitor
   ensureColumn(db, 'entries', 'authorship', 'TEXT'); // who made it: own | help | ai (NULL = not stated)
+  // Learning-story fields: qualities shown (comma-separated keys), the next small step, and the child's own words.
+  ensureColumn(db, 'entries', 'qualities', 'TEXT');
+  ensureColumn(db, 'entries', 'next_step', 'TEXT');
+  ensureColumn(db, 'entries', 'next_done', 'INTEGER NOT NULL DEFAULT 0');
+  ensureColumn(db, 'entries', 'kid_words', 'TEXT');
+  ensureColumn(db, 'entries', 'kid_feeling', 'TEXT');
   ensureColumn(db, 'children', 'psle_year', 'INTEGER'); // optional; otherwise estimated from date of birth
   ensureColumn(db, 'children', 'buddy_id', 'INTEGER'); // the Buddy picture this child chose; NULL = Ankur the sprout
   return db;

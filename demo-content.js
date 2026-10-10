@@ -7,7 +7,7 @@ const crypto = require('crypto');
 
 const DEMO = path.join(__dirname, 'demo');
 // Bump whenever the sample set changes: apps that already show samples swap in the new set on next start.
-const SAMPLE_VERSION = 5;
+const SAMPLE_VERSION = 6;
 const MIME = { '.png': 'image/png', '.wav': 'audio/wav', '.pdf': 'application/pdf' };
 const find = (f) => ['images', 'media'].map((d) => path.join(DEMO, d, f)).find((p) => fs.existsSync(p));
 
@@ -19,11 +19,17 @@ function day(offset) {
 
 function addSampleContent(db, uploadsDir, childId, createdBy) {
   db.prepare("INSERT INTO meta (key, value) VALUES ('sample_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(String(SAMPLE_VERSION));
+  // A family member to leave sample cheers (the demo grandma, if there is one), else the parent.
+  const fam = db.prepare("SELECT id FROM users WHERE role = 'family' ORDER BY id LIMIT 1").get();
+  const FIELDS = ['level', 'result', 'subject', 'score', 'role', 'authorship', 'qualities', 'next_step', 'next_done', 'kid_words', 'kid_feeling'];
   const entry = (category, title, offset, notes, ...files) => {
-    let level = null, result = null, subject = null, score = null, role = null;
-    if (files.length && typeof files[files.length - 1] === 'object') ({ level = null, result = null, subject = null, score = null, role = null } = files.pop());
-    const id = Number(db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, subject, score, role, created_by, is_sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)')
-      .run(childId, category, title, day(offset), notes, level, result, subject, score, role, createdBy).lastInsertRowid);
+    const opts = files.length && typeof files[files.length - 1] === 'object' ? files.pop() : {};
+    const cols = FIELDS.filter((k) => opts[k] != null);
+    const id = Number(db.prepare(`INSERT INTO entries (child_id, category, title, date, notes, created_by, is_sample${cols.map((k) => `, ${k}`).join('')}) VALUES (?, ?, ?, ?, ?, ?, 1${cols.map(() => ', ?').join('')})`)
+      .run(childId, category, title, day(offset), notes, createdBy, ...cols.map((k) => opts[k])).lastInsertRowid);
+    for (const [who, body] of opts.cheers || []) {
+      db.prepare('INSERT INTO cheers (entry_id, user_id, body) VALUES (?, ?, ?)').run(id, who === 'family' && fam ? fam.id : createdBy, body);
+    }
     for (const name of files) {
       const ext = path.extname(name);
       const file = crypto.randomBytes(16).toString('hex') + ext;
@@ -32,20 +38,24 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
         .run(id, file, name, MIME[ext], fs.statSync(path.join(uploadsDir, file)).size);
     }
   };
-  entry('speech', 'Speech practice (sample sound)', -4, 'Tap play to hear a recording. Real ones can be voice notes from the phone.', 'speech-practice-sample.wav');
-  entry('art', 'Rainbow after the rain', -10, 'Poster colours. She mixed the purple herself.', 'art_rainbow.png');
+  entry('speech', 'Speech practice (sample sound)', -4, 'Tap play to hear a recording. Real ones can be voice notes from the phone.', 'speech-practice-sample.wav',
+    { qualities: 'brave,focus', next_step: 'Practise the opening line in front of the mirror, 3 times a day', kid_feeling: 'nervous', kid_words: 'My voice was shaky at first but then I forgot to be scared.' });
+  entry('art', 'Rainbow after the rain', -10, 'Poster colours. She mixed the purple herself.', 'art_rainbow.png',
+    { qualities: 'creative,curious', authorship: 'own', kid_feeling: 'happy', kid_words: 'I made purple by mixing red and blue. It took three tries!', cheers: [['family', 'What beautiful colours, kanna! I love the purple.']] });
   entry('school', 'Lantern making', -14, 'Made a paper lantern for the class festival. Helped a friend with hers.');
   entry('speech', 'Speech: My Favourite Festival', -18, 'Spoke for 2 minutes without notes. Eye contact was lovely.', 'speech_stage.png');
   entry('exam', 'Cambridge Starters result', -26, 'Great score — full marks in listening. Certificate attached.', 'certificate-sample.pdf');
   entry('hindi', 'Hindi alphabet chart', -33, 'Finished writing all the varnamala neatly.');
   entry('art', 'Flower garden', -39, 'Used a sponge for the petals.', 'art_flower.png');
-  entry('accolade', 'Kindness badge', -47, 'Class teacher’s pick for helping a new classmate settle in.');
+  entry('accolade', 'Kindness badge', -47, 'Class teacher’s pick for helping a new classmate settle in.', { qualities: 'kind,team', cheers: [['family', 'Kindness is the best prize of all 💛']] });
   entry('art', 'Peacock watercolour', -55, 'Wet-on-wet technique, first time.', 'art_peacock.png');
   entry('hindi', 'Hindi poem recitation', -67, 'Recited without a single prompt. Teacher was delighted.');
   entry('accolade', 'Star of the week', -80, 'Awarded for kindness in class.');
 
   // Achievements beyond the classroom: olympiads, martial arts, sports, skating
-  entry('olympiad', 'SASMO — Maths', -22, 'Open-ended section was the hard part. Checked her answers twice.', 'medal.png', { level: 'international', result: 'Silver medal', subject: 'maths', score: '71 / 85' });
+  entry('olympiad', 'SASMO — Maths', -22, 'Open-ended section was the hard part. Checked her answers twice.', 'medal.png', { level: 'international', result: 'Silver medal', subject: 'maths', score: '71 / 85',
+    qualities: 'persist,focus', next_step: 'Two open-ended puzzles every Sunday', kid_feeling: 'proud', kid_words: 'The last question was so hard. I didn’t give up!',
+    cheers: [['family', 'You kept going even when it was hard — that’s the real medal!'], ['parent', 'So proud of how you checked every answer.']] });
   entry('olympiad', 'SOF IMO — Level 1 (Maths)', -48, 'Zonal rank from the Student Performance Report. Qualified for Level 2.', { level: 'zonal', result: 'Zonal rank 9', subject: 'maths', score: '52 / 60' });
   entry('olympiad', 'SOF IEO — Level 1 (English)', -60, 'Strong on vocabulary, lost marks on spoken & written expression.', { level: 'school', result: 'School rank 3', subject: 'english', score: '44 / 60' });
   entry('olympiad', 'SOF NSO — Level 1 (Science)', -75, 'First science olympiad. Loved the achievers section.', { level: 'zonal', result: 'Medal of Distinction', subject: 'science', score: '48 / 60' });
@@ -54,9 +64,11 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   entry('olympiad', 'Math Kangaroo', -110, 'Tricky puzzles about shapes and patterns. Loved it.', { level: 'international', result: 'Silver award', subject: 'maths', score: '84 / 120' });
   entry('olympiad', 'SOF NCO — Level 1 (Cyber)', -120, 'Questions on computers, the internet and logic.', { level: 'school', result: 'School rank 2', subject: 'computer', score: '41 / 50' });
   // Coding and robotics classes
-  entry('coding', 'First Scratch game: Catch the stars', -12, 'Built it herself with sprites, a score counter and a timer. Showed it to the whole family.', { result: 'Block-coding level complete' });
+  entry('coding', 'First Scratch game: Catch the stars', -12, 'Built it herself with sprites, a score counter and a timer. Showed it to the whole family.', { result: 'Block-coding level complete',
+    qualities: 'creative,curious,persist', authorship: 'own', next_step: 'Add a second level that gets faster' });
   entry('coding', 'Python turtle drawing', -40, 'Wrote loops to draw a spiral flower. Debugged one indentation error alone.', { result: 'Started Python basics' });
-  entry('robotics', 'Line-following robot', -20, 'Built the robot, then programmed it to follow a black line around the track.', 'robot.png', { result: 'Challenge completed' });
+  entry('robotics', 'Line-following robot', -20, 'Built the robot, then programmed it to follow a black line around the track.', 'robot.png', { result: 'Challenge completed',
+    qualities: 'persist,team,curious', authorship: 'help', next_step: 'Make it stop at the red square' });
   entry('robotics', 'Robotics showcase day', -52, 'Presented the team’s robot to parents. Explained the sensors without notes.', { level: 'school', result: 'Best team spirit', role: 'Team presenter' });
   entry('school', 'Elected class monitor', -10, 'Classmates voted for her at the start of term. Helps the teacher line up the class and hands out worksheets.', { role: 'Class monitor', result: 'Elected by classmates' });
   entry('community', 'Beach clean-up with class', -45, 'Collected litter along the shore with her class — her Values in Action activity for the term.', { result: 'Certificate of participation' });
@@ -70,10 +82,12 @@ function addSampleContent(db, uploadsDir, childId, createdBy) {
   entry('stage', 'School musical — chorus', -64, 'Learned three songs and the stage positions.', { result: 'Performed on both nights' });
   entry('singing', 'Piano Grade 1 exam', -33, 'Played three pieces and scales. Nervous but steady.', { result: 'Grade 1 passed', score: '124 / 150' });
   entry('singing', 'Choir festival performance', -50, 'Sang in a two-part song with the school choir.', { level: 'zonal', result: 'Silver award' });
-  entry('writing', 'My first short story: The Moon Garden', -15, 'Wrote 12 sentences all by herself and drew the pictures.', { result: 'Read aloud in class' });
+  entry('writing', 'My first short story: The Moon Garden', -15, 'Wrote 12 sentences all by herself and drew the pictures.', { result: 'Read aloud in class',
+    qualities: 'creative,focus', authorship: 'own', next_step: 'Write one page of a new story every weekend', kid_feeling: 'proud', kid_words: 'The moon garden grows flowers that glow at night.' });
   entry('writing', 'Creative writing contest', -72, 'Wrote about a day as a raindrop.', { level: 'zonal', result: 'Highly commended' });
   entry('martial', 'Karate — yellow belt grading', -16, 'Kata performed without a pause. Sensei said her stance was perfect.', 'belt.png', { result: 'Yellow belt' });
-  entry('martial', 'Taekwondo inter-club tournament', -41, 'Sparring, under-8 category. Lost the final by one point.', { level: 'zonal', result: 'Silver medal' });
+  entry('martial', 'Taekwondo inter-club tournament', -41, 'Sparring, under-8 category. Lost the final by one point.', { level: 'zonal', result: 'Silver medal',
+    qualities: 'bounce,brave', next_step: 'Work on the back kick with Sensei', next_done: 1, kid_feeling: 'tricky', kid_words: 'I cried a bit after the final. Next time I will keep my guard up.' });
   entry('sports', 'Football — zonal tournament', -28, 'Scored a goal in the semi-final. Team lost the final on penalties.', { level: 'zonal', result: 'Runner-up (team)' });
   entry('sports', 'Football — national selection trials', -70, 'Made the shortlist from over 200 children.', { level: 'national', result: 'Shortlisted' });
   entry('sports', 'International youth football festival', -95, 'Played three matches against teams from four countries.', { level: 'international', result: 'Team participant' });

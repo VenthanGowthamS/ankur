@@ -2,9 +2,18 @@
 /* Kaizen Folio — a private growth portfolio and extra-curricular tracker. Vanilla JS, no build step.
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
-const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, AUTHORSHIP, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE } = window.ANKUR; // from catalog.js
+const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, AUTHORSHIP, QUALITIES, FEELINGS, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE } = window.ANKUR; // from catalog.js
 const subjectLabel = (k) => (SUBJECTS.find((x) => x[0] === k) || [, k])[1];
 const authorLabel = (k) => { const a = AUTHORSHIP.find((x) => x[0] === k); return a ? `${a[1]} ${a[2]}` : ''; };
+const qualityOf = (k) => QUALITIES.find((x) => x[0] === k);
+const qualityList = (e) => (e.qualities ? e.qualities.split(',').map(qualityOf).filter(Boolean) : []);
+const feelingOf = (k) => FEELINGS.find((x) => x[0] === k);
+// Counts how often each quality shows up across moments, most frequent first.
+function topQualities(entries, n = 3) {
+  const counts = new Map();
+  entries.forEach((e) => qualityList(e).forEach(([k]) => counts.set(k, (counts.get(k) || 0) + 1)));
+  return [...counts].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, c]) => [...qualityOf(k), c]);
+}
 const levelLabel = (k) => (LEVELS.find((x) => x[0] === k) || [, k])[1];
 const groupOf = (cat) => (CATS[cat] || CATS.other)[2];
 // "52 / 60" -> "52 / 60 · 87%"; anything else is shown as typed.
@@ -72,6 +81,7 @@ function toast(msg) {
   setTimeout(() => t.remove(), 3200);
 }
 const isParent = () => !!state.user && state.user.role === 'parent' && !state.previewKid;
+const isFamily = () => !!state.user && state.user.role === 'family' && !state.previewKid;
 const isKid = () => !!state.user && (state.user.role === 'child' || state.previewKid === true);
 const child = () => state.children.find((c) => c.id === state.childId) || state.children[0];
 
@@ -124,10 +134,25 @@ function openForm({ title, fields, values = {}, submitLabel = 'Save', extra, onS
     if (f.type === 'textarea') input = h('textarea', { name: f.name, required: f.required, maxlength: f.max, value: v ?? '' });
     else if (f.type === 'select') input = h('select', { name: f.name }, f.options.map(([val, lab]) => h('option', { value: val, selected: String(v ?? f.default ?? '') === String(val) }, lab)));
     else if (f.type === 'checkbox') input = h('input', { type: 'checkbox', name: f.name, checked: v === undefined ? !!f.default : !!v });
+    else if (f.type === 'multi') {
+      let picked = new Set(Array.isArray(v) ? v : String(v ?? '').split(',').filter(Boolean));
+      input = h('div', { class: 'pick-chips', role: 'group', 'aria-label': f.label });
+      const paint = () => input.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(picked.has(b.dataset.k))));
+      input.append(...f.options.map(([k, lab]) => h('button', { type: 'button', class: 'chip', 'data-k': k, onclick: () => {
+        if (f.single) picked = picked.has(k) ? new Set() : new Set([k]);
+        else if (picked.has(k)) picked.delete(k);
+        else if (!f.maxItems || picked.size < f.maxItems) picked.add(k);
+        else toast(`Pick up to ${f.maxItems}`);
+        paint();
+      } }, lab)));
+      paint();
+      input.getValue = () => [...picked].join(',');
+    }
     else if (f.type === 'files') input = h('input', { type: 'file', name: f.name, accept: f.accept || 'image/*,audio/*,video/*,application/pdf', multiple: !f.single });
     else input = h('input', { type: f.type || 'text', name: f.name, required: f.required, maxlength: f.max, value: v ?? f.default ?? '', autocomplete: f.autocomplete || 'off', list: f.list });
     inputs[f.name] = input;
     if (f.type === 'checkbox') return h('label', { class: 'field check' }, input, f.label);
+    if (f.type === 'multi') return h('div', { class: 'field' }, h('span', null, f.label + (f.required ? '' : ' (optional)')), input, f.hint && h('span', { class: 'small' }, f.hint));
     return h('label', { class: 'field' }, f.label + (f.required ? '' : ' (optional)'), input, f.hint && h('span', { class: 'small' }, f.hint));
   });
   const save = h('button', { class: 'btn primary', type: 'submit' }, submitLabel);
@@ -140,7 +165,7 @@ function openForm({ title, fields, values = {}, submitLabel = 'Save', extra, onS
       for (const f of fields) {
         const el = inputs[f.name];
         if (f.type === 'files') out.files.push(...el.files);
-        else out.values[f.name] = f.type === 'checkbox' ? el.checked : el.value;
+        else out.values[f.name] = f.type === 'checkbox' ? el.checked : f.type === 'multi' ? el.getValue() : el.value;
       }
       save.disabled = true; save.textContent = 'Saving…';
       try { await onSubmit(out); closeModal(); }
@@ -350,6 +375,11 @@ async function viewPortfolio(main) {
       h('span', { class: 'stat' }, h('b', null, entries.length), 'moments'),
       h('span', { class: 'stat' }, h('b', null, entries.reduce((n, e) => n + e.media.length, 0)), 'photos & files'),
       h('span', { class: 'stat' }, h('b', null, Object.keys(counts).length), 'areas')),
+    (() => {
+      const top = topQualities(entries);
+      return top.length ? h('div', { class: 'shows' }, h('span', { class: 'shows-l' }, isKid() ? 'You show lots of' : 'Shows most'),
+        top.map(([, i, l, n]) => h('span', { class: 'q-chip', title: `${n} moment${n > 1 ? 's' : ''}` }, `${i} ${l}`))) : null;
+    })(),
     (mainCta || pdfBtn) ? h('div', { class: 'hero-cta' }, mainCta || null, pdfBtn || null) : null);
 
   // Tabs (Study · Sports · Arts & stage · Awards) and, inside a tab, one chip per area.
@@ -388,7 +418,7 @@ function entryCard(e, c) {
   return buildEntry(e, c, emoji, label);
 }
 function buildEntry(e, c, emoji, label) {
-  return h('article', { class: 'card entry', 'data-cat': e.category },
+  const card = h('article', { class: 'card entry', 'data-cat': e.category, 'data-id': e.id },
     h('div', { class: 'entry-head' },
       h('div', { class: 'main' },
         h('span', { class: 'badge' }, `${emoji} ${label}`),
@@ -403,7 +433,75 @@ function buildEntry(e, c, emoji, label) {
           e.level && h('span', { class: 'win level' }, levelLabel(e.level)))),
       isParent() && h('button', { class: 'btn small ghost', 'aria-label': `Edit ${e.title}`, onclick: () => entryForm(c, e) }, 'Edit')),
     e.notes && h('p', { class: 'notes' }, e.notes),
-    e.media.length > 0 && h('div', { class: 'media' }, e.media.map(mediaItem)));
+    qualityList(e).length > 0 && h('div', { class: 'q-row' }, qualityList(e).map(([, i, l]) => h('span', { class: 'q-chip' }, `${i} ${l}`))),
+    e.media.length > 0 && h('div', { class: 'media' }, e.media.map(mediaItem)),
+    storyBits(e, c, () => card));
+  return card;
+}
+
+// The learning-story half of a card: the child's own words, the next small step, and family cheers.
+function storyBits(e, c, getCard) {
+  const swap = (updated) => getCard().replaceWith(entryCard(updated, c));
+  const who = c.nickname || c.name;
+  const feel = feelingOf(e.kid_feeling);
+  const canWrite = isKid() || isParent();
+  const words = (e.kid_words || feel) && h('figure', { class: 'kid-words' },
+    h('figcaption', null, isKid() ? 'In my words' : `In ${who}’s words`, feel && h('span', { class: 'feel' }, `${feel[1]} ${feel[2]}`)),
+    e.kid_words && h('blockquote', null, e.kid_words));
+  const next = e.next_step && h('div', { class: `next-step${e.next_done ? ' done' : ''}` },
+    h('span', null, e.next_done ? '✅ ' : '🌱 ', h('b', null, 'Next small step: '), e.next_step),
+    isParent() && h('button', { class: 'btn small ghost', 'aria-label': e.next_done ? 'Mark as not done' : 'Mark as done', onclick: async () => {
+      try {
+        const updated = await api('PUT', `/api/entries/${e.id}`, { next_done: !e.next_done });
+        swap(updated);
+        if (updated.next_done) { toast('One small step done 🌱'); confetti(); }
+      } catch (ex) { toast(ex.message); }
+    } }, e.next_done ? 'Undo' : '✓ Done'));
+  const cheers = e.cheers && e.cheers.length > 0 && h('ul', { class: 'cheers' }, e.cheers.map((x) => h('li', null,
+    h('b', null, `${x.name}: `), x.body,
+    (x.user_id === state.user.id || isParent()) && h('button', { class: 'btn small ghost', 'aria-label': 'Remove cheer', onclick: async () => {
+      if (!(await confirmBox('Remove this cheer?', 'Remove'))) return;
+      try { swap(await api('DELETE', `/api/cheers/${x.id}`)); } catch (ex) { toast(ex.message); }
+    } }, '✕'))));
+  const acts = h('div', { class: 'story-acts' },
+    canWrite && h('button', { class: 'btn small', onclick: () => wordsForm(e, who, swap) }, e.kid_words || feel ? '✏️ Edit words' : isKid() ? '✏️ Add my words' : `✏️ ${who}’s words`),
+    (isParent() || isFamily()) && h('button', { class: 'btn small', onclick: () => cheerForm(e, who, swap) }, '💬 Cheer'));
+  if (!words && !next && !cheers && !acts.childElementCount) return null;
+  return h('div', { class: 'story' }, words || null, next || null, cheers || null, acts.childElementCount ? acts : null);
+}
+
+function wordsForm(e, who, swap) {
+  openForm({
+    title: isKid() ? 'In my words' : `In ${who}’s words`,
+    submitLabel: 'Save',
+    values: { feeling: e.kid_feeling || '', words: e.kid_words || '' },
+    fields: [
+      { name: 'feeling', label: isKid() ? 'How did you feel?' : 'How did they feel?', type: 'multi', single: true, options: FEELINGS.map(([k, i, l]) => [k, `${i} ${l}`]) },
+      { name: 'words', label: isKid() ? 'What do you want to remember about it?' : `What did ${who} say about it?`, type: 'textarea', max: 500,
+        hint: isKid() ? 'What was the best part? What was hard? What will you try next time?' : 'Their own words, as they said them — that’s what makes it theirs.' },
+    ],
+    onSubmit: async ({ values }) => {
+      const updated = await api('PUT', `/api/entries/${e.id}/words`, { words: values.words, feeling: values.feeling });
+      swap(updated);
+      if (isKid()) confetti();
+    },
+  });
+}
+
+// Process praise ideas (effort, strategy, bouncing back), from growth-mindset research.
+const CHEER_IDEAS = ['You kept going even when it was hard!', 'I love how you practised for this.', 'What a clever way to solve it!', 'So brave to try something new!'];
+function cheerForm(e, who, swap) {
+  let box;
+  openForm({
+    title: `Cheer for ${who}`,
+    submitLabel: 'Send cheer',
+    fields: [{ name: 'body', label: 'Your cheer', type: 'textarea', max: 280, required: true, hint: 'Praise the effort and the “how”, not just the result.' }],
+    extra: [h('div', { class: 'pick-chips' }, CHEER_IDEAS.map((t) => h('button', { type: 'button', class: 'chip', onclick: () => {
+      box = box || document.querySelector('.modal textarea[name="body"]');
+      box.value = t; box.focus();
+    } }, t)))],
+    onSubmit: async ({ values }) => { swap(await api('POST', `/api/entries/${e.id}/cheers`, { body: values.body })); },
+  });
 }
 
 function mediaItem(m) {
@@ -444,13 +542,15 @@ function entryForm(c, entry) {
       { name: 'title', label: 'What happened?', required: true, max: 160, list: 'olympiad-names', hint: 'For an olympiad, start typing — e.g. SASMO, SEAMO, ICAS, Math Kangaroo' },
       { name: 'category', label: 'Area', type: 'select', options: catOptions() },
       { name: 'date', label: 'Date', type: 'date', required: true },
+      { name: 'notes', label: 'What happened — how it went, how it felt', type: 'textarea', max: 5000 },
+      { name: 'qualities', label: 'Qualities shown', type: 'multi', maxItems: 4, options: QUALITIES.map(([k, e, l]) => [k, `${e} ${l}`]), hint: 'The “how”, not just the medal — praise the effort and the strategy. Up to 4.' },
+      { name: 'next_step', label: 'Next small step 🌱', max: 200, hint: 'One small, doable thing to try next — e.g. “Practise the left-hand part 10 minutes a day”' },
       { name: 'subject', label: 'Subject — for olympiads and tests', type: 'select', options: [['', '— none —'], ...SUBJECTS] },
       { name: 'score', label: 'Score', max: 40, hint: 'Marks out of total, e.g. 52 / 60 — the percentage is worked out for you' },
       { name: 'level', label: 'Level of the event', type: 'select', options: [['', '— not a competition —'], ...LEVELS] },
       { name: 'result', label: 'Result — medal, rank, belt, badge', max: 120, hint: 'e.g. Gold medal · Zonal rank 9 · Honourable mention · Yellow belt' },
       { name: 'role', label: 'Role — if she led or organised it', max: 60, list: 'role-names', hint: 'e.g. Team captain, Class monitor, Club leader, MUN delegate — leave blank if she just took part' },
       { name: 'authorship', label: 'Who made this?', type: 'select', options: [['', '— not stated —'], ...AUTHORSHIP.map(([k, e, l]) => [k, `${e} ${l}`])], hint: 'Honest records matter later: say if it was their own work, made with help, or AI-assisted.' },
-      { name: 'notes', label: 'Notes — scores, feedback, how it felt', type: 'textarea', max: 5000 },
       { name: 'files', label: editing ? 'Add more photos, recordings or PDFs' : 'Photos, recordings, videos or PDFs', type: 'files', hint: 'Up to 8 files, 80 MB each.' },
     ],
     extra: [h('datalist', { id: 'olympiad-names' }, OLYMPIADS.map((o) => h('option', { value: o }))),
@@ -458,11 +558,11 @@ function entryForm(c, entry) {
     onSubmit: async ({ values, files }) => {
       let saved;
       if (editing) {
-        saved = await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes, level: values.level, result: values.result, subject: values.subject, score: values.score, role: values.role, authorship: values.authorship });
+        saved = await api('PUT', `/api/entries/${entry.id}`, { title: values.title, category: values.category, date: values.date, notes: values.notes, level: values.level, result: values.result, subject: values.subject, score: values.score, role: values.role, authorship: values.authorship, qualities: values.qualities, next_step: values.next_step });
         if (files.length) { const fd = new FormData(); files.forEach((f) => fd.append('files', f)); await api('POST', `/api/entries/${entry.id}/media`, fd); }
       } else {
         const fd = new FormData();
-        ['title', 'category', 'date', 'notes', 'level', 'result', 'subject', 'score', 'role', 'authorship'].forEach((k) => fd.set(k, values[k]));
+        ['title', 'category', 'date', 'notes', 'level', 'result', 'subject', 'score', 'role', 'authorship', 'qualities', 'next_step'].forEach((k) => fd.set(k, values[k]));
         files.forEach((f) => fd.append('files', f));
         saved = await api('POST', `/api/children/${c.id}/entries`, fd);
       }
@@ -555,6 +655,14 @@ function bookPages(c, entries, ladder, activities, opts, goals = []) {
       return ks.length ? h('div', null, h('strong', null, `${e} ${l}: `), ks.map((k) => CATS[k][1]).join(', ')) : null;
     }))));
 
+  // Character: the qualities shown across all moments — the "how", which report books now emphasise too.
+  const allQ = topQualities(entries, QUALITIES.length);
+  if (allQ.length) {
+    pages.push(h('section', { class: 'b-sec' }, h('h2', null, '🌱 Qualities shown'),
+      h('p', { class: 'b-note' }, 'How often each quality came through in the moments recorded here.'),
+      table(['Quality', 'Moments'], allQ.map(([, i, l, n]) => [`${i} ${l}`, String(n)]))));
+  }
+
   // Highlights: the biggest stage first
   if (wins.length) {
     const top = [...wins].sort((a, b) => (LEVEL_RANK[b.level] || 0) - (LEVEL_RANK[a.level] || 0) || b.date.localeCompare(a.date)).slice(0, 15);
@@ -623,6 +731,9 @@ function bookPages(c, entries, ladder, activities, opts, goals = []) {
               (e.result || e.level || e.score || e.subject || e.role || e.authorship) && h('div', { class: 'b-badges' },
                 [e.authorship && authorLabel(e.authorship), e.role && `👑 ${e.role}`, e.subject && subjectLabel(e.subject), e.score && `📝 ${scoreText(e)}`, e.result && `🏅 ${e.result}`, e.level && levelLabel(e.level)].filter(Boolean).map((t) => h('span', null, t))),
               opts.notes && e.notes && h('p', null, e.notes),
+              qualityList(e).length > 0 && h('div', { class: 'b-badges' }, qualityList(e).map(([, i, l]) => h('span', null, `${i} ${l}`))),
+              (e.kid_words || e.kid_feeling) && h('p', { class: 'b-words' }, '“', [feelingOf(e.kid_feeling)?.slice(1).join(' '), e.kid_words].filter(Boolean).join(' — '), '”'),
+              e.next_step && h('p', { class: 'b-next' }, `🌱 Next: ${e.next_step}${e.next_done ? ' ✓' : ''}`),
               imgs.length > 0 && h('div', { class: 'b-photos' }, imgs.map((m) => h('img', { src: `/media/${m.id}`, alt: m.original || '' }))),
               extras > 0 && h('div', { class: 'b-more' }, `+ ${extras} recording${extras > 1 ? 's' : ''} or document${extras > 1 ? 's' : ''} kept in Kaizen Folio`)));
         })))));
@@ -1010,8 +1121,27 @@ async function viewDashboard(main) {
     h('div', { class: 'section-head' }, h('h2', null, title), h('div', { class: 'row' }, extra, h('button', { class: 'btn small', onclick: onAdd }, addLabel))), content];
   const emptyBox = (t) => h('div', { class: 'empty' }, t);
 
+  const openSteps = allEntries.filter((e) => e.next_step && !e.next_done);
+  const doneSteps = allEntries.filter((e) => e.next_step && e.next_done).length;
+  const stepRow = (e) => h('div', { class: 'card item', 'data-cat': e.category },
+    h('span', { class: 'badge' }, (CATS[e.category] || CATS.other)[0]),
+    h('div', { class: 'main' }, h('div', { class: 'title' }, e.next_step), h('div', { class: 'small muted' }, `after “${e.title}” · ${fmtDate(e.date)}`)),
+    h('button', { class: 'btn small', onclick: async () => {
+      try { await api('PUT', `/api/entries/${e.id}`, { next_done: true }); toast('One small step done 🌱'); confetti(); refresh(); } catch (ex) { toast(ex.message); }
+    } }, '✓ Done'));
+  const qAll = topQualities(allEntries, QUALITIES.length);
+  const qMax = qAll.length ? qAll[0][3] : 1;
+  const qualityCard = qAll.length && h('div', { class: 'card q-bars' }, qAll.map(([, i, l, n]) => h('div', { class: 'q-bar' },
+    h('span', { class: 'q-l' }, `${i} ${l}`), h('span', { class: 'q-track' }, h('span', { class: 'q-fill', 'data-w': Math.round((n / qMax) * 100) })), h('b', null, n))));
+
   main.replaceChildren(
     tiles,
+    h('div', { class: 'section-head' }, h('h2', null, '🌱 Next small steps'), doneSteps > 0 && h('span', { class: 'count-pill' }, `${doneSteps} done`)),
+    h('p', { class: 'muted small lead-in' }, 'Kaizen: one small, doable step after each moment. Tick them off as they happen.'),
+    openSteps.length ? h('div', { class: 'list' }, openSteps.slice(0, 8).map(stepRow))
+      : emptyBox('No open steps. When you add a moment, write one small thing to try next.'),
+    ...(qualityCard ? [h('div', { class: 'section-head' }, h('h2', null, '💛 Qualities shown')),
+      h('p', { class: 'muted small lead-in' }, 'The “how” behind the moments — what schools now report instead of class positions.'), qualityCard] : []),
     ...sec('Coming up', '＋ Event', () => eventForm(c), upcoming.length ? h('div', { class: 'list' }, upcoming.map(eventRow)) : emptyBox('No contests or exams planned. Add the next one.')),
     ...(past.length ? [h('div', { class: 'month' }, 'Recently done'), h('div', { class: 'list' }, past.map(eventRow))] : []),
     ...sec('Activities', '＋ Activity', () => activityForm(c), activities.length ? h('div', { class: 'list' }, activities.map(actRow)) : emptyBox('Hindi tuition, art class, Toastmasters youth… add them here.')),
@@ -1021,6 +1151,8 @@ async function viewDashboard(main) {
     ...(olympiads.length ? [h('div', { class: 'section-head' }, h('h2', null, 'Olympiad scores')), h('div', { class: 'list' }, [...bySubject].map(([k, r]) => scoreCard(k, r)))] : []),
     ...sec('Ladders & levels', '＋ Level', () => ladderForm(c, null, ladder), tracks.size ? h('div', { class: 'list' }, [...tracks].map(([t, s]) => ladderCard(t, s))) : emptyBox('Exam levels, belts, olympiad rounds — add a ladder to track progress.'),
       h('button', { class: 'btn small', onclick: () => ladderTemplateForm(c, tracks) }, '＋ Ladder')));
+  // Widths via the DOM, not inline style attributes (the CSP blocks those).
+  main.querySelectorAll('.q-fill[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
 }
 
 function ladderTemplateForm(c, existingTracks) {
@@ -1114,7 +1246,11 @@ async function viewSettings(main) {
       h('div', { class: 'card item' },
         h('div', { class: 'main' }, h('div', { class: 'title' }, `See what ${c.nickname || c.name} sees`),
           h('div', { class: 'small muted' }, 'Preview the kid view with Buddy. Nothing changes.')),
-        h('button', { class: 'btn', onclick: () => { state.previewKid = true; state.buddy = null; state.view = 'portfolio'; renderShell(); } }, '👀 Preview kid view')));
+        h('button', { class: 'btn', onclick: () => { state.previewKid = true; state.buddy = null; state.view = 'portfolio'; renderShell(); } }, '👀 Preview kid view')),
+      h('div', { class: 'card item' },
+        h('div', { class: 'main' }, h('div', { class: 'title' }, 'Download everything'),
+          h('div', { class: 'small muted' }, 'One ZIP with every moment, the original photos and files, and a page that opens offline. Keep a copy somewhere safe — it’s your family’s record.')),
+        h('a', { class: 'btn', href: '/api/export', download: '' }, '⬇️ Download')));
 
     // Buddy pictures: parents add them, the child chooses one by tapping Buddy.
     const pics = await api('GET', `/api/children/${c.id}/buddies`);
@@ -1394,6 +1530,12 @@ async function mountBuddy(c, openWith) {
     topics.push(['💭 Remember something', () => {
       const r = f.remember;
       talk(`Remember “${r.title}” from ${fmtDate(r.date)}? That was a good one!`, r.imageId, r.title);
+    }]);
+    if (Object.keys(f.qualities || {}).length) topics.push(['🌟 What am I good at?', () => {
+      const top = Object.entries(f.qualities).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k]) => qualityOf(k)).filter(Boolean);
+      talk(top.length > 1
+        ? `You show ${top[0][2].toLowerCase()} ${top[0][1]} and ${top[1][2].toLowerCase()} ${top[1][1]} again and again. That’s who you are becoming!`
+        : `You show ${top[0][2].toLowerCase()} ${top[0][1]} again and again. Keep it up!`);
     }]);
     topics.push(['🏆 What am I proud of?', () => {
       if (f.lastPassed) { talk(`You passed ${f.lastPassed.level}${f.lastPassed.score ? ` with ${f.lastPassed.score}` : ''}! 🎉`); confetti(); }

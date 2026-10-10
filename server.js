@@ -7,6 +7,7 @@ const multer = require('multer');
 const bcrypt = require('bcryptjs');
 const { openDb, seedLadder, tx } = require('./db');
 const { addSampleContent, removeSampleContent, refreshSamples } = require('./demo-content');
+const { streamExport } = require('./export');
 
 const catalog = require('./public/catalog');
 
@@ -15,6 +16,8 @@ const CATEGORIES = Object.keys(catalog.CATS);
 const LEVELS = catalog.LEVELS.map(([k]) => k);
 const SUBJECTS = catalog.SUBJECTS.map(([k]) => k);
 const AUTHORSHIP = catalog.AUTHORSHIP.map(([k]) => k);
+const QUALITIES = catalog.QUALITIES.map(([k]) => k);
+const FEELINGS = catalog.FEELINGS.map(([k]) => k);
 const EVENT_KINDS = catalog.EVENT_KINDS.map(([k]) => k);
 const STAGES = catalog.PATHWAY.map((s) => s.key);
 const GOAL_STATUS = catalog.GOAL_STATUS.map(([k]) => k);
@@ -108,6 +111,9 @@ const ENTRY_FIELDS = {
   score: { type: 'str', max: 40 },
   role: { type: 'str', max: 60 },
   authorship: { type: 'enum', values: AUTHORSHIP },
+  qualities: { type: 'list', values: QUALITIES, maxItems: 4 },
+  next_step: { type: 'str', max: 200 },
+  next_done: { type: 'bool' },
 };
 
 const CHILD_FIELDS = {
@@ -129,6 +135,14 @@ function parseFields(spec, body, partial = false) {
       continue;
     }
     let v = body[key];
+    if (rule.type === 'list') {
+      // Accepts an array or a comma-separated string; stored as "a,b,c" (or NULL when empty).
+      const items = [...new Set((Array.isArray(v) ? v : String(v ?? '').split(',')).map((s) => String(s).trim()).filter(Boolean))];
+      if (items.some((s) => !rule.values.includes(s))) throw new HttpError(400, `${key} is invalid`);
+      if (rule.maxItems && items.length > rule.maxItems) throw new HttpError(400, `Pick up to ${rule.maxItems} ${key}`);
+      out[key] = items.length ? items.join(',') : null;
+      continue;
+    }
     if (rule.type === 'bool') {
       out[key] = v === true || v === 1 || v === '1' || v === 'true' ? 1 : 0;
       continue;
@@ -170,6 +184,9 @@ function getCookie(req, name) {
 }
 
 const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
+// The family's calendar day, not UTC: in Singapore, UTC is still "yesterday" until 8am.
+// Uses the server's local time zone, so set TZ (e.g. TZ=Asia/Singapore) on the host.
+const localDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 function createApp({ dataDir, cookieSecure = false } = {}) {
   dataDir = dataDir || process.env.ANKUR_DATA_DIR || path.join(__dirname, 'data');
@@ -244,13 +261,14 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     next();
   };
 
-  // ---- login throttling (per IP, in memory)
+  // ---- login throttling (in memory), by IP *and* by account. Per-IP alone is not enough: behind a proxy
+  // without TRUST_PROXY every visitor shares one IP, and a kid's short password could be guessed from many IPs.
   const attempts = new Map();
-  function throttle(req) {
+  function throttle(key) {
     const now = Date.now();
-    if (attempts.size > 1000) for (const [ip, r] of attempts) if (r.reset < now) attempts.delete(ip);
-    const rec = attempts.get(req.ip);
-    if (!rec || rec.reset < now) { attempts.set(req.ip, { count: 0, reset: now + 15 * 60 * 1000 }); return attempts.get(req.ip); }
+    if (attempts.size > 1000) for (const [k, r] of attempts) if (r.reset < now) attempts.delete(k);
+    const rec = attempts.get(key);
+    if (!rec || rec.reset < now) { attempts.set(key, { count: 0, reset: now + 15 * 60 * 1000 }); return attempts.get(key); }
     return rec;
   }
 
@@ -290,13 +308,14 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
   });
 
   app.post('/api/login', (req, res) => {
-    const rec = throttle(req);
-    if (rec.count >= 10) throw new HttpError(429, 'Too many attempts. Try again in a few minutes.');
     const email = cleanEmail(req.body.email);
+    const byIp = throttle(`ip:${req.ip}`);
+    const byAccount = throttle(`acct:${email}`);
+    if (byIp.count >= 10 || byAccount.count >= 10) throw new HttpError(429, 'Too many attempts. Try again in a few minutes.');
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     const ok = bcrypt.compareSync(String(req.body.password || ''), user ? user.password_hash : DUMMY_HASH);
-    if (!user || !ok) { rec.count++; throw new HttpError(401, 'Wrong email or password'); }
-    attempts.delete(req.ip);
+    if (!user || !ok) { byIp.count++; byAccount.count++; throw new HttpError(401, 'Wrong email or password'); }
+    attempts.delete(`acct:${email}`); attempts.delete(`ip:${req.ip}`);
     db.prepare('DELETE FROM sessions WHERE expires_at < ?').run(Date.now());
     startSession(res, user.id);
     res.json({ user: { id: user.id, name: user.name, email: user.email, role: user.role, child_id: user.child_id } });
@@ -413,10 +432,29 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     }
     return map;
   };
+  // Cheers: short notes from family on a moment (the "family voice"). Returned with each entry.
+  const cheersFor = (entryIds) => {
+    const map = new Map();
+    if (!entryIds.length) return map;
+    const rows = db.prepare(
+      `SELECT c.id, c.entry_id, c.user_id, c.body, c.created_at, u.name FROM cheers c LEFT JOIN users u ON u.id = c.user_id
+       WHERE c.entry_id IN (${entryIds.map(() => '?').join(',')}) ORDER BY c.id`
+    ).all(...entryIds);
+    for (const r of rows) {
+      if (!map.has(r.entry_id)) map.set(r.entry_id, []);
+      map.get(r.entry_id).push({ id: r.id, user_id: r.user_id, name: r.name || 'Family', body: r.body, created_at: r.created_at });
+    }
+    return map;
+  };
+  const withExtras = (rows) => {
+    const ids = rows.map((r) => r.id);
+    const media = mediaFor(ids);
+    const cheers = cheersFor(ids);
+    return rows.map((r) => ({ ...r, media: media.get(r.id) || [], cheers: cheers.get(r.id) || [] }));
+  };
   const entryWithMedia = (id) => {
     const e = db.prepare('SELECT * FROM entries WHERE id = ?').get(id);
-    if (!e) return null;
-    return { ...e, media: mediaFor([e.id]).get(e.id) || [] };
+    return e ? withExtras([e])[0] : null;
   };
 
   // ---- portfolio entries
@@ -425,16 +463,17 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     const rows = cat && CATEGORIES.includes(cat)
       ? db.prepare('SELECT * FROM entries WHERE child_id = ? AND category = ? ORDER BY date DESC, id DESC').all(req.child.id, cat)
       : db.prepare('SELECT * FROM entries WHERE child_id = ? ORDER BY date DESC, id DESC').all(req.child.id);
-    const media = mediaFor(rows.map((r) => r.id));
-    res.json(rows.map((r) => ({ ...r, media: media.get(r.id) || [] })));
+    res.json(withExtras(rows));
   });
 
   app.post('/api/children/:cid/entries', requireParent, childParam, upload.array('files', 8), (req, res) => {
     try {
       const v = parseFields(ENTRY_FIELDS, req.body);
       const id = tx(db, () => {
-        const r = db.prepare('INSERT INTO entries (child_id, category, title, date, notes, level, result, subject, score, role, authorship, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(req.child.id, v.category, v.title, v.date, v.notes ?? null, v.level ?? null, v.result ?? null, v.subject ?? null, v.score ?? null, v.role ?? null, v.authorship ?? null, req.user.id);
+        // Columns come from ENTRY_FIELDS (validated above), so a new field can't be silently dropped here.
+        const cols = ['child_id', 'created_by', ...Object.keys(v)];
+        const r = db.prepare(`INSERT INTO entries (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`)
+          .run(req.child.id, req.user.id, ...Object.values(v));
         saveMedia(Number(r.lastInsertRowid), req.files);
         return Number(r.lastInsertRowid);
       });
@@ -452,6 +491,39 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     updateRow('entries', req.entry.id, parseFields(ENTRY_FIELDS, req.body, true));
     res.json(entryWithMedia(req.entry.id));
   });
+  // The child's own words and feeling about a moment. The one place a kid login can write text,
+  // and only on their own moments. Parents can fill it in too (e.g. typing what she said aloud).
+  const ownMomentOnly = (req) => {
+    if (req.user.role === 'family') throw new HttpError(403, 'Only the child or a parent can write this');
+    if (req.user.role === 'child' && req.user.child_id !== req.entry.child_id) throw new HttpError(403, 'Not your moment');
+  };
+  app.put('/api/entries/:id/words', requireAuth, entryParam, (req, res) => {
+    ownMomentOnly(req);
+    const v = parseFields({ kid_words: { type: 'str', max: 500 }, kid_feeling: { type: 'enum', values: FEELINGS } },
+      { kid_words: req.body.words ?? '', kid_feeling: req.body.feeling ?? '' });
+    updateRow('entries', req.entry.id, v);
+    res.json(entryWithMedia(req.entry.id));
+  });
+
+  // Family cheers: parents and family members can leave a short note; a kid reads them (but doesn't post).
+  app.post('/api/entries/:id/cheers', requireAuth, entryParam, (req, res) => {
+    if (req.user.role === 'child') throw new HttpError(403, 'Cheers are from family — add your own words instead');
+    const body = String(req.body.body || '').trim();
+    if (!body) throw new HttpError(400, 'Write a short cheer');
+    if (body.length > 280) throw new HttpError(400, 'Keep it short (280 letters)');
+    if (db.prepare('SELECT COUNT(*) AS n FROM cheers WHERE entry_id = ?').get(req.entry.id).n >= 50) throw new HttpError(400, 'That moment has plenty of cheers');
+    db.prepare('INSERT INTO cheers (entry_id, user_id, body) VALUES (?, ?, ?)').run(req.entry.id, req.user.id, body);
+    res.status(201).json(entryWithMedia(req.entry.id));
+  });
+  app.delete('/api/cheers/:id', requireAuth, (req, res) => {
+    const c = db.prepare('SELECT * FROM cheers WHERE id = ?').get(Number(req.params.id));
+    if (!c) throw new HttpError(404, 'Not found');
+    // Your own cheer, or any cheer if you're a parent (parents moderate).
+    if (c.user_id !== req.user.id && req.user.role !== 'parent') throw new HttpError(403, 'You can only remove your own cheers');
+    db.prepare('DELETE FROM cheers WHERE id = ?').run(c.id);
+    res.json(entryWithMedia(c.entry_id));
+  });
+
   app.post('/api/entries/:id/media', requireParent, entryParam, upload.array('files', 8), (req, res) => {
     try { saveMedia(req.entry.id, req.files); } catch (err) { discard(req.files); throw err; }
     res.status(201).json(entryWithMedia(req.entry.id));
@@ -518,8 +590,13 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     };
     const counts = {};
     for (const r of db.prepare('SELECT category, COUNT(*) AS n FROM entries WHERE child_id = ? GROUP BY category').all(cid)) counts[r.category] = r.n;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDay();
+    const qualities = {};
+    for (const r of db.prepare('SELECT qualities FROM entries WHERE child_id = ? AND qualities IS NOT NULL').all(cid)) {
+      for (const q of r.qualities.split(',')) qualities[q] = (qualities[q] || 0) + 1;
+    }
     res.json({
+      qualities,
       name: req.child.nickname || req.child.name,
       total: Object.values(counts).reduce((a, b) => a + b, 0),
       counts,
@@ -592,6 +669,12 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
     const files = tx(db, () => removeSampleContent(db, req.child.id));
     files.forEach(removeFile);
     res.json({ ok: true });
+  });
+
+  // ---- "Download everything": a ZIP the family owns (JSON + original files + an offline index.html)
+  app.get('/api/export', requireParent, async (req, res, next) => {
+    try { await streamExport(res, db, uploadDir, catalog); }
+    catch (err) { if (res.headersSent) res.destroy(err); else next(err); }
   });
 
   // ---- dashboard summary
