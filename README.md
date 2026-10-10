@@ -1,8 +1,8 @@
-# Ankur 🌱
+# Kaizen Folio 🌱
 
 A private growth portfolio, **extra-curricular tracker** and parent dashboard for our children — art, speech, Cambridge exams, Chinese, Hindi, dance, drama, singing, writing, olympiads, sports, coding, accolades and everything in between, kept safe in one place.
 
-*Ankur (அங்குரம் / अंकुर) means "sprout".*
+*Kaizen (改善) means "change for the better" — small steps, every day. Folio is the portfolio they build along the way. Internally the code still uses the original working name, "ankur", for files, cookies and environment variables.*
 
 ## What's in the MVP
 

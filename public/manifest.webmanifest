@@ -1,6 +1,6 @@
 {
-  "name": "Ankur",
-  "short_name": "Ankur",
+  "name": "Kaizen Folio",
+  "short_name": "Kaizen Folio",
   "description": "A private growth portfolio and extra-curricular tracker for our children.",
   "start_url": "/",
   "display": "standalone",

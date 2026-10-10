@@ -1,5 +1,5 @@
 // Minimal offline shell. Never caches API responses or media — those are private.
-const CACHE = 'ankur-shell-v4';
+const CACHE = 'kaizen-shell-v5';
 const SHELL = ['/', '/style.css', '/catalog.js', '/worldmap.js', '/app.js', '/icon.svg', '/manifest.webmanifest'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {

@@ -1,5 +1,5 @@
 'use strict';
-/* Loads a fictional family so you can click around Ankur without typing anything in.
+/* Loads a fictional family so you can click around Kaizen Folio without typing anything in.
    Nothing here is real data. Run:  npm run seed          (only if the app is still empty)
                                     npm run seed:reset    (wipes data/ first)            */
 const fs = require('fs');
@@ -28,7 +28,7 @@ function seedDemo(dataDir, { reset = false } = {}) {
   const db = openDb(dataDir);
   if (db.prepare('SELECT COUNT(*) AS n FROM users').get().n > 0) {
     db.close();
-    throw new Error('This Ankur already has accounts. Use "npm run seed:reset" to wipe it and load the demo.');
+    throw new Error('This Kaizen Folio already has accounts. Use "npm run seed:reset" to wipe it and load the demo.');
   }
   const uploads = path.join(dataDir, 'uploads');
 

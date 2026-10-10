@@ -1,5 +1,5 @@
 'use strict';
-/* Ankur — a private growth portfolio and extra-curricular tracker. Vanilla JS, no build step.
+/* Kaizen Folio — a private growth portfolio and extra-curricular tracker. Vanilla JS, no build step.
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
 const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE } = window.ANKUR; // from catalog.js
@@ -210,7 +210,7 @@ function renderAuth(needsSetup) {
     setup && field('Child’s name', 'childName'),
     setup && h('label', { class: 'field' }, 'Child’s date of birth (optional)', h('input', { name: 'childDob', type: 'date' })),
     err,
-    h('button', { class: `btn primary${kid ? ' big' : ''}`, type: 'submit' }, setup ? 'Create our Ankur' : kid ? 'Let’s go! 🚀' : 'Sign in'));
+    h('button', { class: `btn primary${kid ? ' big' : ''}`, type: 'submit' }, setup ? 'Create our Kaizen Folio' : kid ? 'Let’s go! 🚀' : 'Sign in'));
 
     const setMode = (v) => {
       kid = v;
@@ -227,15 +227,15 @@ function renderAuth(needsSetup) {
       h('button', { type: 'button', class: 'link', onclick: () => { creating = !creating; draw(); } }, creating ? 'Sign in' : 'Create account'));
 
     const tag = setup ? 'First time here — set up the parent account.'
-      : invitedOnly ? 'Ankur is private.'
-      : kid ? 'Type your name and your secret word to see your journey.' : 'Extra-curricular tracker — a private place where our children’s journey grows.';
+      : invitedOnly ? 'Kaizen Folio is private.'
+      : kid ? 'Type your name and your secret word to see your journey.' : 'Small steps, every day — a private place where our children’s journey grows.';
     const invitedNote = h('div', { class: 'note' },
       'Accounts here are by invitation, so strangers can’t sign up. Ask a parent to add you from ', h('strong', null, 'Family → Invite'), ', then come back and sign in.');
 
     root().replaceChildren(h('main', { class: `auth${kid ? ' kid-login' : ''}` }, h('div', { class: 'card' },
       modeSwitch,
       kid ? buddyFace('logo kid-logo') : sproutSvg('logo'),
-      h('h1', null, kid ? 'Hi there! 👋' : 'Ankur'),
+      h('h1', null, kid ? 'Hi there! 👋' : 'Kaizen Folio'),
       h('p', { class: 'tag' }, tag),
       invitedOnly ? invitedNote : form,
       swap)));
@@ -246,7 +246,7 @@ function renderAuth(needsSetup) {
 
 /* ---------- shell ---------- */
 function renderShell() {
-  document.title = 'Ankur';
+  document.title = 'Kaizen Folio';
   document.querySelector('.buddy')?.remove();
   document.querySelector('.surfer')?.remove();
   const kids = state.children;
@@ -262,7 +262,7 @@ function renderShell() {
     await api('POST', '/api/logout'); state.user = null; state.buddy = null; boot();
   } }, state.previewKid ? '← Back to parent view' : 'Bye 👋');
   root().replaceChildren(h('div', { class: `shell${isKid() ? ' kid' : ''}` },
-    h('header', { class: 'topbar' }, h('div', { class: 'brand' }, isKid() ? h('span', { class: 'brand-ic' }, buddyAvatar()) : sproutSvg(), 'Ankur'), h('div', { class: 'spacer' }), switcher, bye),
+    h('header', { class: 'topbar' }, h('div', { class: 'brand' }, isKid() ? h('span', { class: 'brand-ic' }, buddyAvatar()) : sproutSvg(), 'Kaizen Folio'), h('div', { class: 'spacer' }), switcher, bye),
     tabs.length ? nav : null, main));
   if (isKid() && child()) mountBuddy(child());
   if (state.view === 'book' && isKid()) state.view = 'portfolio';
@@ -429,7 +429,7 @@ async function viewBook(main) {
     parent ? api('GET', `/api/children/${c.id}/activities`) : [],
     parent ? api('GET', `/api/children/${c.id}/goals`) : [],
   ]);
-  document.title = `${c.name} — Ankur portfolio`;
+  document.title = `${c.name} — Kaizen Folio`;
   const opts = state.book || (state.book = { group: 'all', from: '', to: '', photos: true, notes: true, ladders: true, goals: true });
   const book = h('div', { class: 'book' });
 
@@ -562,10 +562,10 @@ function bookPages(c, entries, ladder, activities, opts, goals = []) {
                 [e.role && `👑 ${e.role}`, e.subject && subjectLabel(e.subject), e.score && `📝 ${scoreText(e)}`, e.result && `🏅 ${e.result}`, e.level && levelLabel(e.level)].filter(Boolean).map((t) => h('span', null, t))),
               opts.notes && e.notes && h('p', null, e.notes),
               imgs.length > 0 && h('div', { class: 'b-photos' }, imgs.map((m) => h('img', { src: `/media/${m.id}`, alt: m.original || '' }))),
-              extras > 0 && h('div', { class: 'b-more' }, `+ ${extras} recording${extras > 1 ? 's' : ''} or document${extras > 1 ? 's' : ''} kept in Ankur`)));
+              extras > 0 && h('div', { class: 'b-more' }, `+ ${extras} recording${extras > 1 ? 's' : ''} or document${extras > 1 ? 's' : ''} kept in Kaizen Folio`)));
         })))));
   }
-  pages.push(h('footer', { class: 'b-foot' }, `${name}’s portfolio · made with Ankur on ${fmtDate(todayIso())} · a private family record`));
+  pages.push(h('footer', { class: 'b-foot' }, `${name}’s portfolio · made with Kaizen Folio on ${fmtDate(todayIso())} · a private family record`));
   return pages;
 }
 
@@ -1062,7 +1062,7 @@ async function viewSettings(main) {
         pics.buddies.length < 12 && h('button', { class: 'btn small', onclick: () => buddyPicForm(c) }, '＋ Buddy picture')),
       h('p', { class: 'muted small' }, `Add favourite characters or toys as pictures. ${who} taps Buddy → “Change my buddy” to pick one. Pictures stay private to your family, like every photo here.`),
       h('div', { class: 'buddy-grid' },
-        h('div', { class: `card buddy-card${pics.chosen == null ? ' on' : ''}` }, buddyFace(), h('strong', null, 'Ankur the sprout'), h('span', { class: 'small muted' }, pics.chosen == null ? 'chosen' : 'default')),
+        h('div', { class: `card buddy-card${pics.chosen == null ? ' on' : ''}` }, buddyFace(), h('strong', null, 'Kai the sprout'), h('span', { class: 'small muted' }, pics.chosen == null ? 'chosen' : 'default')),
         pics.buddies.map((b) => h('div', { class: `card buddy-card${pics.chosen === b.id ? ' on' : ''}` },
           h('img', { src: `/buddy-pic/${b.id}`, alt: '' }), h('strong', null, b.name),
           h('span', { class: 'small muted' }, pics.chosen === b.id ? 'chosen' : ''),
@@ -1177,7 +1177,7 @@ function passwordForm() {
 }
 
 
-/* ---------- Buddy: Ankur the sprout, for kid logins only ----------
+/* ---------- Buddy: Kai the sprout, for kid logins only ----------
    Deliberately scripted: it only reads facts from /buddy and never takes free text,
    so a child can't type anything to it and it can't say anything unexpected. */
 function buddyFace(cls) {
@@ -1200,7 +1200,7 @@ const CHEERS = [
   'Practice makes sparkle ✨', 'I’m so proud of you! 🎉', 'You can do hard things. I believe in you! 💪',
 ];
 
-// The child's chosen Buddy: one of the pictures a parent uploaded, or Ankur the sprout.
+// The child's chosen Buddy: one of the pictures a parent uploaded, or Kai the sprout.
 const chosenBuddy = () => {
   const b = state.buddy;
   return (b && b.pics && b.pics.buddies.find((x) => x.id === b.pics.chosen)) || null;
@@ -1223,7 +1223,7 @@ async function mountBuddy(c, openWith) {
   const f = state.buddy.facts;
   const name = f.name;
   const me = chosenBuddy();
-  const buddyName = me ? me.name : 'Ankur the sprout';
+  const buddyName = me ? me.name : 'Kai the sprout';
   const say = h('div', { class: 'bubble', 'aria-live': 'polite' });
   const pic = h('div', { class: 'bubble-pic' });
   const chips = h('div', { class: 'buddy-chips' });
@@ -1242,7 +1242,7 @@ async function mountBuddy(c, openWith) {
   // Pick a buddy: the sprout, or any picture a parent added.
   const choose = () => {
     talk('Who do you want as your buddy? Tap one!');
-    const options = [{ id: null, name: 'Ankur the sprout' }, ...state.buddy.pics.buddies];
+    const options = [{ id: null, name: 'Kai the sprout' }, ...state.buddy.pics.buddies];
     pic.replaceChildren(h('div', { class: 'buddy-pick' }, options.map((o) =>
       h('button', { class: 'pick', 'aria-pressed': String((state.buddy.pics.chosen ?? null) === o.id), onclick: async () => {
         try {
@@ -1279,7 +1279,7 @@ async function mountBuddy(c, openWith) {
   chips.replaceChildren(...topics.map(([label, fn]) => h('button', { class: 'chip', onclick: fn }, label)));
   const hello = () => talk(f.total > 0
     ? (me ? `Hi ${name}! It’s me, ${buddyName}! I keep all your moments safe. What would you like to see?`
-      : `Hi ${name}! I’m Ankur, your sprout friend. I keep all your moments safe. What would you like to see?`)
+      : `Hi ${name}! I’m Kai, your sprout friend. I keep all your moments safe. What would you like to see?`)
     : `Hi ${name}! Your journey is just starting. Ask Mummy or Papa to add your first moment!`);
 
   // Buddy surfs around the screen; tapping it docks it bottom-right and opens the panel.

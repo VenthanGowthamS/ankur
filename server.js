@@ -637,5 +637,5 @@ module.exports = { createApp };
 if (require.main === module) {
   const port = Number(process.env.PORT) || 3000;
   const app = createApp({ cookieSecure: process.env.COOKIE_SECURE === '1' });
-  app.listen(port, () => console.log(`Ankur is growing on http://localhost:${port}`));
+  app.listen(port, () => console.log(`Kaizen Folio is growing on http://localhost:${port}`));
 }
