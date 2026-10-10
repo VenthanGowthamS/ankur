@@ -244,6 +244,28 @@ function renderAuth(needsSetup) {
   draw();
 }
 
+/* ---------- theme: Light, or Midnight (dark, glowing). Saved per device. ---------- */
+function themeButton() {
+  const root = document.documentElement;
+  const current = () => root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'midnight' : 'light');
+  const btn = h('button', { class: 'btn small ghost theme-btn', type: 'button' });
+  const paint = () => {
+    const dark = current() === 'midnight';
+    btn.textContent = dark ? '☀️' : '🌙';
+    btn.setAttribute('aria-label', dark ? 'Switch to the light theme' : 'Switch to the Midnight theme');
+    btn.title = dark ? 'Light theme' : 'Midnight theme';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#090a0f' : '#4f7f3a');
+  };
+  btn.addEventListener('click', () => {
+    const next = current() === 'midnight' ? 'light' : 'midnight';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('kf_theme', next); } catch { /* ignore */ }
+    paint();
+  });
+  paint();
+  return btn;
+}
+
 /* ---------- shell ---------- */
 function renderShell() {
   document.title = 'Kaizen Folio';
@@ -262,7 +284,7 @@ function renderShell() {
     await api('POST', '/api/logout'); state.user = null; state.buddy = null; boot();
   } }, state.previewKid ? '← Back to parent view' : 'Bye 👋');
   root().replaceChildren(h('div', { class: `shell${isKid() ? ' kid' : ''}` },
-    h('header', { class: 'topbar' }, h('div', { class: 'brand' }, isKid() ? h('span', { class: 'brand-ic' }, buddyAvatar()) : sproutSvg(), 'Kaizen Folio'), h('div', { class: 'spacer' }), switcher, bye),
+    h('header', { class: 'topbar' }, h('div', { class: 'brand' }, isKid() ? h('span', { class: 'brand-ic' }, buddyAvatar()) : sproutSvg(), 'Kaizen Folio'), h('div', { class: 'spacer' }), switcher, themeButton(), bye),
     tabs.length ? nav : null, main));
   if (isKid() && child()) mountBuddy(child());
   if (state.view === 'book' && isKid()) state.view = 'portfolio';
@@ -283,14 +305,20 @@ async function viewPortfolio(main) {
   const inGroup = state.group === 'all' ? entries : entries.filter((e) => groupOf(e.category) === state.group);
   const shown = state.filter === 'all' ? inGroup : inGroup.filter((e) => e.category === state.filter);
 
+  const pdfBtn = !isKid() && entries.length > 0 && h('button', { class: 'btn big-cta', title: 'Make a PDF portfolio', onclick: () => { state.view = 'book'; renderShell(); } }, '📄 PDF portfolio ', h('span', { class: 'arrow' }, '→'));
+  const mainCta = isParent()
+    ? h('button', { class: 'btn primary big-cta', onclick: () => entryForm(c) }, '＋ Add moment')
+    : isKid() && entries.length > 0 && h('button', { class: 'btn primary big-cta', onclick: () => document.getElementById('journey')?.scrollIntoView({ behavior: 'smooth' }) }, '✨ See my moments ', h('span', { class: 'arrow' }, '↓'));
   const hero = h('section', { class: 'hero' },
     sproutSvg('sprout'),
+    h('span', { class: 'eyebrow' }, isKid() ? 'My journey' : 'Portfolio · small steps, every day'),
     h('h1', null, isKid() ? `Hi ${c.nickname || c.name}! 🌟` : c.name),
     h('p', { class: 'muted' }, isKid() ? 'This is your journey — everything you’ve done and loved.' : [ageText(c.dob), c.bio].filter(Boolean).join(' · ') || 'Every class, contest and small step — kept safe.'),
     h('div', { class: 'stats' },
       h('span', { class: 'stat' }, h('b', null, entries.length), 'moments'),
       h('span', { class: 'stat' }, h('b', null, entries.reduce((n, e) => n + e.media.length, 0)), 'photos & files'),
-      h('span', { class: 'stat' }, h('b', null, Object.keys(counts).length), 'areas')));
+      h('span', { class: 'stat' }, h('b', null, Object.keys(counts).length), 'areas')),
+    (mainCta || pdfBtn) ? h('div', { class: 'hero-cta' }, mainCta || null, pdfBtn || null) : null);
 
   // Tabs (Study · Sports · Arts & stage · Awards) and, inside a tab, one chip per area.
   const groupCount = (g) => entries.filter((e) => groupOf(e.category) === g).length;
@@ -303,10 +331,8 @@ async function viewPortfolio(main) {
     [['all', state.group === 'all' ? 'Every area' : 'All of these']].concat(areaKeys.map((k) => [k, `${CATS[k][0]} ${CATS[k][1]} · ${counts[k]}`]))
       .map(([k, label]) => h('button', { class: 'chip', 'aria-pressed': String(state.filter === k), onclick: () => setFilter(state.group, k) }, label)));
 
-  const head = h('div', { class: 'section-head' }, h('h2', null, 'Journey'),
-    h('div', { class: 'row head-acts' },
-      !isKid() && entries.length > 0 && h('button', { class: 'btn small', title: 'Make a PDF portfolio', onclick: () => { state.view = 'book'; renderShell(); } }, '📄 PDF'),
-      isParent() && h('button', { class: 'btn primary small', onclick: () => entryForm(c) }, '＋ Add moment')));
+  const head = h('div', { class: 'section-head', id: 'journey' }, h('h2', null, 'Journey'),
+    h('span', { class: 'count-pill' }, `${shown.length} moment${shown.length === 1 ? '' : 's'}`));
 
   let timeline;
   if (!shown.length) {
