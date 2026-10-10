@@ -158,6 +158,7 @@ function openForm({ title, fields, values = {}, submitLabel = 'Save', extra, onS
 const root = () => document.getElementById('app');
 
 async function boot() {
+  document.querySelector('.buddy')?.remove(); document.querySelector('.surfer')?.remove();
   try {
     const me = await api('GET', '/api/me');
     if (!me.user) return renderAuth(me.needsSetup);
@@ -247,6 +248,7 @@ function renderAuth(needsSetup) {
 function renderShell() {
   document.title = 'Ankur';
   document.querySelector('.buddy')?.remove();
+  document.querySelector('.surfer')?.remove();
   const kids = state.children;
   const tabs = isKid() ? [] : [['portfolio', '🌱', 'Portfolio'], ...(isParent() ? [['dashboard', '📊', 'Dashboard'], ['goals', '🎯', 'Goals']] : []), ['settings', '⚙️', isParent() ? 'Family' : 'Account']];
   const main = h('main', { id: 'main' });
@@ -1216,7 +1218,7 @@ async function mountBuddy(c, openWith) {
     } catch { return; }
   }
   if (!document.getElementById('app').querySelector('.shell.kid')) return;
-  document.querySelector('.buddy')?.remove();
+  document.querySelector('.buddy')?.remove(); document.querySelector('.surfer')?.remove();
   document.querySelector('.topbar .brand-ic')?.replaceChildren(buddyAvatar());
   const f = state.buddy.facts;
   const name = f.name;
@@ -1280,14 +1282,64 @@ async function mountBuddy(c, openWith) {
       : `Hi ${name}! I’m Ankur, your sprout friend. I keep all your moments safe. What would you like to see?`)
     : `Hi ${name}! Your journey is just starting. Ask Mummy or Papa to add your first moment!`);
 
-  const btn = h('button', { class: 'buddy-btn', 'aria-label': `Talk to ${buddyName}`, onclick: () => {
-    panel.classList.toggle('hidden');
+  // Buddy surfs around the screen; tapping it docks it bottom-right and opens the panel.
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let roam = null;
+  const setOpen = (open, greet = true) => {
+    panel.classList.toggle('hidden', !open);
     hint.remove();
-    if (!panel.classList.contains('hidden')) hello();
-  } }, buddyAvatar());
+    if (calm) { if (open && greet) hello(); return; }
+    btn.classList.toggle('hidden', !open);
+    surfer.classList.toggle('hidden', open);
+    if (open) { if (greet) hello(); } else roam?.reset();
+  };
+  const btn = h('button', { class: `buddy-btn${calm ? '' : ' hidden'}`, 'aria-label': `Talk to ${buddyName}`, onclick: () => setOpen(panel.classList.contains('hidden')) }, buddyAvatar());
   const hint = h('div', { class: 'buddy-hint' }, `Hi ${name}! Tap me 👋`);
-  document.body.append(h('div', { class: 'buddy' }, panel, openWith ? null : hint, btn));
-  if (openWith) { panel.classList.remove('hidden'); talk(openWith); }
+  panel.querySelector('.buddy-head .btn')?.addEventListener('click', () => setOpen(false));
+  const surfBtn = h('button', { class: 'surfer-btn', 'aria-label': `Talk to ${buddyName}`, onclick: () => setOpen(true) }, buddyAvatar());
+  const surfer = h('div', { class: 'surfer' }, openWith || calm ? null : hint,
+    h('div', { class: 'surfer-ride' }, surfBtn, h('div', { class: 'board' }), surfWave()));
+  document.body.append(h('div', { class: 'buddy' }, panel, openWith || !calm ? null : hint, btn));
+  if (!calm) {
+    document.body.append(surfer);
+    roam = surfAround(surfer, () => !panel.classList.contains('hidden'));
+  }
+  if (openWith) { setOpen(true, false); talk(openWith); }
+}
+
+function surfWave() {
+  const s = document.createElementNS(SVG_NS, 'svg');
+  s.setAttribute('viewBox', '0 0 112 26'); s.setAttribute('aria-hidden', 'true'); s.setAttribute('class', 'surf-wave');
+  const wave = (cls, d) => { const p = document.createElementNS(SVG_NS, 'path'); p.setAttribute('d', d); if (cls) p.setAttribute('class', cls); s.append(p); };
+  wave('', 'M0 12 Q14 0 28 12 T56 12 T84 12 T112 12 V26 H0Z');
+  wave('w2', 'M0 18 Q14 8 28 18 T56 18 T84 18 T112 18 V26 H0Z');
+  return s;
+}
+
+// Glide the surfer to a new spot every few seconds, tilting the way it travels.
+function surfAround(el, isPaused) {
+  const W = 92, H = 112, rand = (a, b) => a + Math.random() * (b - a);
+  let x = 0, y = 0, timer;
+  const bounds = () => ({ minX: 8, maxX: Math.max(9, innerWidth - W - 8), minY: Math.max(90, innerHeight * 0.38), maxY: Math.max(140, innerHeight - H - 84) });
+  const place = (nx, ny, dur) => {
+    el.classList.toggle('left', nx < x); x = nx; y = ny;
+    el.style.setProperty('--dur', `${dur}s`); el.style.setProperty('--x', `${nx}px`); el.style.setProperty('--y', `${ny}px`);
+  };
+  const next = () => {
+    if (!el.isConnected) return;
+    if (isPaused() || document.hidden) { timer = setTimeout(next, 1500); return; }
+    const b = bounds(), nx = rand(b.minX, b.maxX), ny = rand(b.minY, b.maxY);
+    const dur = Math.min(8, Math.max(2.5, Math.hypot(nx - x, ny - y) / 80));
+    place(nx, ny, dur);
+    timer = setTimeout(next, dur * 1000 + rand(700, 3200));
+  };
+  const reset = () => {
+    clearTimeout(timer);
+    const b = bounds(); place(b.maxX, b.maxY, 0);
+    timer = setTimeout(next, 1200);
+  };
+  reset();
+  return { reset };
 }
 
 /* ---------- go ---------- */

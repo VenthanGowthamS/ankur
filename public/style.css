@@ -477,3 +477,145 @@ details.stage > summary h2 { font-size: 1.15rem; }
 .uni dd { margin: 0; font-size: .9rem; }
 .uni-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .uni-acts a.btn { text-decoration: none; }
+
+/* =====================================================================
+   Glow-up layer: colourful mesh background, glass bars, friendlier cards,
+   gentle entrance animation, and the surfing Buddy.
+   Inspired by the "mesh gradient + soft glass frame" look of QAInsights/achu.
+   ===================================================================== */
+:root {
+  --sky: #7cc4e8; --blush: #f6a8c2; --sun: #ffd37a; --mint: #9fe0b4; --lilac: #c4b0f2;
+  --glass: color-mix(in srgb, var(--surface) 72%, transparent);
+  --lift: 0 2px 4px rgba(60, 50, 20, .06), 0 14px 34px rgba(60, 50, 20, .12);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sky: #2d6f93; --blush: #8a3f5e; --sun: #8a6a22; --mint: #2e6e47; --lilac: #54428f;
+    --lift: 0 2px 4px rgba(0, 0, 0, .35), 0 14px 34px rgba(0, 0, 0, .4);
+  }
+}
+body { background: var(--bg); position: relative; }
+body::before {
+  content: ""; position: fixed; inset: -20%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 12% 14%, var(--sun), transparent 70%),
+    radial-gradient(34% 32% at 88% 10%, var(--blush), transparent 70%),
+    radial-gradient(40% 36% at 80% 86%, var(--sky), transparent 70%),
+    radial-gradient(36% 34% at 10% 82%, var(--mint), transparent 70%),
+    radial-gradient(30% 28% at 52% 48%, var(--lilac), transparent 72%);
+  opacity: .55; filter: blur(30px); animation: mesh 26s ease-in-out infinite alternate;
+}
+@keyframes mesh { 0% { transform: translate3d(0, 0, 0) scale(1) rotate(0); } 100% { transform: translate3d(3%, -2%, 0) scale(1.12) rotate(6deg); } }
+
+.topbar {
+  position: sticky; top: 0; z-index: 25; margin: 0 -16px; padding-left: 16px; padding-right: 16px;
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.3);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+}
+.brand { background: linear-gradient(90deg, var(--leaf-d), var(--amber)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand svg { filter: drop-shadow(0 2px 4px rgba(79, 127, 58, .35)); transition: transform .4s; }
+.brand:hover svg { transform: rotate(-12deg) scale(1.12); }
+.nav { background: var(--glass); backdrop-filter: blur(16px) saturate(1.3); }
+.nav button { transition: background .2s, transform .15s, color .2s; }
+.nav button:active { transform: scale(.94); }
+.nav button[aria-current="page"] { background: linear-gradient(135deg, var(--leaf-soft), var(--amber-soft)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--leaf) 30%, transparent); }
+
+.card {
+  border-radius: 20px; background: var(--glass); backdrop-filter: blur(10px);
+  border-color: color-mix(in srgb, var(--line) 80%, transparent);
+  transition: transform .25s cubic-bezier(.2, .8, .2, 1), box-shadow .25s;
+}
+@media (hover: hover) { .card:hover { transform: translateY(-3px); box-shadow: var(--lift); } }
+.btn { transition: transform .15s, box-shadow .2s, background .2s, border-color .2s; }
+.btn:hover { transform: translateY(-1px); }
+.btn:active { transform: scale(.96); }
+.btn.primary { background: linear-gradient(135deg, var(--leaf), color-mix(in srgb, var(--leaf) 55%, var(--amber))); box-shadow: 0 6px 16px color-mix(in srgb, var(--leaf) 35%, transparent); }
+.chip { transition: transform .15s, background .2s; }
+.chip:hover { transform: translateY(-1px); }
+.chip[aria-pressed="true"] { background: linear-gradient(135deg, var(--leaf), color-mix(in srgb, var(--leaf) 55%, var(--amber))); }
+
+.hero {
+  border-radius: 28px; padding: 28px 24px; border: 0; box-shadow: var(--lift);
+  background:
+    radial-gradient(60% 90% at 0% 0%, var(--sun), transparent 65%),
+    radial-gradient(55% 90% at 100% 10%, var(--blush), transparent 65%),
+    radial-gradient(60% 90% at 70% 110%, var(--sky), transparent 65%),
+    linear-gradient(135deg, var(--mint), var(--lilac));
+}
+.hero::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .35) 50%, transparent 65%);
+  transform: translateX(-120%); animation: shine 7s ease-in-out 1.2s infinite;
+}
+@keyframes shine { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+.hero > * { position: relative; z-index: 1; }
+.hero h1 { font-size: 2.2rem; text-shadow: 0 1px 0 rgba(255, 255, 255, .5); }
+.hero .sprout { opacity: .35; animation: sway 5s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes sway { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(5deg); } }
+.stat { backdrop-filter: blur(8px); box-shadow: 0 2px 8px rgba(60, 50, 20, .08); }
+.shell.kid .hero { background:
+    radial-gradient(60% 90% at 0% 0%, var(--sun), transparent 65%),
+    radial-gradient(55% 90% at 100% 10%, var(--blush), transparent 65%),
+    radial-gradient(60% 90% at 70% 110%, var(--sky), transparent 65%),
+    linear-gradient(135deg, var(--mint), var(--lilac)); }
+
+.entry { border-left: 0; position: relative; overflow: hidden; padding-left: 20px; }
+.entry::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+  background: linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 40%, #fff));
+}
+.entry::after {
+  content: ""; position: absolute; right: -40px; top: -40px; width: 120px; height: 120px; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--c) 18%, transparent), transparent 70%); pointer-events: none;
+}
+.media img, .media video { transition: transform .3s, box-shadow .3s; }
+@media (hover: hover) { .media img:hover { transform: scale(1.04) rotate(-.6deg); box-shadow: var(--lift); } }
+.tile b { background: linear-gradient(135deg, var(--leaf-d), var(--amber)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.datebox { background: linear-gradient(160deg, var(--amber-soft), var(--leaf-soft)); }
+
+@keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+.stack > *, .timeline > *, .list > *, .tiles > *, .hero { animation: rise .55s cubic-bezier(.2, .8, .2, 1) backwards; }
+.stack > :nth-child(2), .timeline > :nth-child(2), .list > :nth-child(2), .tiles > :nth-child(2) { animation-delay: .06s; }
+.stack > :nth-child(3), .timeline > :nth-child(3), .list > :nth-child(3), .tiles > :nth-child(3) { animation-delay: .12s; }
+.stack > :nth-child(4), .timeline > :nth-child(4), .list > :nth-child(4), .tiles > :nth-child(4) { animation-delay: .18s; }
+.stack > :nth-child(n+5), .timeline > :nth-child(n+5), .list > :nth-child(n+5), .tiles > :nth-child(n+5) { animation-delay: .24s; }
+
+/* ---------- the surfing Buddy ---------- */
+.surfer {
+  position: fixed; left: 0; top: 0; z-index: 24; width: 92px; pointer-events: none;
+  transform: translate3d(var(--x, 0px), var(--y, 0px), 0);
+  transition: transform var(--dur, 4s) cubic-bezier(.45, .05, .55, .95);
+  will-change: transform;
+}
+.surfer.hidden { display: none; }
+.surfer-ride { display: grid; justify-items: center; animation: carve 2.4s ease-in-out infinite; transform-origin: 50% 90%; }
+.surfer.left .surfer-ride { animation-name: carve-l; }
+@keyframes carve { 0%, 100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-9px) rotate(6deg); } }
+@keyframes carve-l { 0%, 100% { transform: translateY(0) rotate(5deg); } 50% { transform: translateY(-9px) rotate(-6deg); } }
+.surfer-btn {
+  pointer-events: auto; width: 68px; height: 68px; border-radius: 50%; border: 0; padding: 4px; cursor: pointer; overflow: hidden;
+  background: var(--surface); box-shadow: var(--shadow), 0 0 0 3px var(--leaf); position: relative; z-index: 2;
+  transition: box-shadow .2s, transform .2s;
+}
+.surfer-btn:hover { box-shadow: var(--shadow), 0 0 0 4px var(--amber); transform: scale(1.08); }
+.surfer-btn svg, .surfer-btn img { width: 100%; height: 100%; display: block; border-radius: 50%; object-fit: cover; }
+.board {
+  width: 88px; height: 16px; margin-top: -10px; border-radius: 50% / 100%; position: relative; z-index: 1;
+  background: linear-gradient(90deg, #ff8a5c, #ffd37a 45%, #5cc8d9);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .12), inset 0 -3px 0 rgba(0, 0, 0, .1);
+}
+.board::after { content: ""; position: absolute; left: 12%; right: 12%; top: 45%; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .8); }
+.surf-wave { width: 112px; height: 26px; margin-top: -9px; overflow: visible; animation: slosh 1.6s ease-in-out infinite; }
+.surf-wave path { fill: color-mix(in srgb, var(--sky) 85%, #fff); opacity: .85; }
+.surf-wave path.w2 { fill: #fff; opacity: .55; }
+@keyframes slosh { 0%, 100% { transform: translateX(-5px); } 50% { transform: translateX(5px); } }
+.surfer.park .surfer-ride, .surfer.park .surf-wave { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) {
+  body::before, .hero::after, .hero .sprout, .surfer-ride, .surf-wave { animation: none; }
+  .stack > *, .timeline > *, .list > *, .tiles > *, .hero { animation: none; }
+  .surfer { transition: none; }
+}
+@media print { body::before, .surfer { display: none !important; } }
+.surfer .buddy-hint { position: absolute; right: 0; bottom: calc(100% - 4px); white-space: nowrap; pointer-events: none; z-index: 3; }
+.topbar { margin: 0; padding-left: 0; padding-right: 0; border-bottom: 0; background: var(--glass); box-shadow: 0 0 0 100vmax var(--glass); clip-path: inset(0 -100vmax); }
+@media (min-width: 760px) { .nav { background: none; backdrop-filter: none; } }
