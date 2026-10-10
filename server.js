@@ -531,6 +531,7 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
   // ---- Buddy pictures: parents upload a few pictures, the child picks one as their Buddy.
   // Private like every photo here: served only to signed-in family, and a kid only sees their own.
   const BUDDY_MIME = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp' };
+  const BUILTIN_BUDDIES = [-1, -2, -3]; // Zen friends drawn in the app: panda, dragon, cat
   const buddyUpload = multer({
     storage: multer.diskStorage({ destination: uploadDir, filename: (req, file, cb) => cb(null, 'buddy-' + crypto.randomBytes(16).toString('hex') + BUDDY_MIME[file.mimetype]) }),
     limits: { fileSize: 8 * 1024 * 1024, files: 1 },
@@ -564,7 +565,8 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
   app.put('/api/children/:cid/buddy', requireAuth, childParam, (req, res) => {
     if (req.user.role === 'family') throw new HttpError(403, 'Only the child or a parent can choose');
     const id = req.body.buddyId == null ? null : Number(req.body.buddyId);
-    if (id !== null && !db.prepare('SELECT 1 FROM buddies WHERE id = ? AND child_id = ?').get(id, req.child.id)) throw new HttpError(400, 'Unknown buddy');
+    // Negative ids are the built-in Zen friends (-1 panda, -2 dragon, -3 cat); positive ids are pictures a parent uploaded.
+    if (id !== null && !BUILTIN_BUDDIES.includes(id) && !db.prepare('SELECT 1 FROM buddies WHERE id = ? AND child_id = ?').get(id, req.child.id)) throw new HttpError(400, 'Unknown buddy');
     db.prepare('UPDATE children SET buddy_id = ? WHERE id = ?').run(id, req.child.id);
     res.json({ chosen: id });
   });

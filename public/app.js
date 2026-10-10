@@ -1086,9 +1086,10 @@ async function viewSettings(main) {
     parts.push(
       h('div', { class: 'section-head' }, h('h2', null, `${who}’s buddies`),
         pics.buddies.length < 12 && h('button', { class: 'btn small', onclick: () => buddyPicForm(c) }, '＋ Buddy picture')),
-      h('p', { class: 'muted small' }, `Add favourite characters or toys as pictures. ${who} taps Buddy → “Change my buddy” to pick one. Pictures stay private to your family, like every photo here.`),
+      h('p', { class: 'muted small' }, `Zen friends (panda, dragon and cat) are built in. Add more favourite characters or toys as pictures. ${who} taps Buddy → “Pick my friend” to choose one. Pictures stay private to your family, like every photo here.`),
       h('div', { class: 'buddy-grid' },
         h('div', { class: `card buddy-card${pics.chosen == null ? ' on' : ''}` }, buddyFace(), h('strong', null, 'Kai the sprout'), h('span', { class: 'small muted' }, pics.chosen == null ? 'chosen' : 'default')),
+        ZEN.map((z) => h('div', { class: `card buddy-card${pics.chosen === z.id ? ' on' : ''}` }, zenFace(z.key), h('strong', null, z.name), h('span', { class: 'small muted' }, pics.chosen === z.id ? 'chosen' : 'built in'))),
         pics.buddies.map((b) => h('div', { class: `card buddy-card${pics.chosen === b.id ? ' on' : ''}` },
           h('img', { src: `/buddy-pic/${b.id}`, alt: '' }), h('strong', null, b.name),
           h('span', { class: 'small muted' }, pics.chosen === b.id ? 'chosen' : ''),
@@ -1221,6 +1222,7 @@ function buddyFace(cls) {
   return s;
 }
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
+const ZEN_DONE = ['Lovely. Calm body, strong mind 🌿', 'That felt peaceful. Well done!', 'Slow and steady wins. You did it 🧘', 'Ahh… ready for anything now ✨'];
 const CHEERS = [
   'You are growing every single day! 🌱', 'Brave, curious and kind — that’s you!', 'Every little step counts. Look how far you’ve come!',
   'Practice makes sparkle ✨', 'I’m so proud of you! 🎉', 'You can do hard things. I believe in you! 💪',
@@ -1229,11 +1231,62 @@ const CHEERS = [
 // The child's chosen Buddy: one of the pictures a parent uploaded, or Kai the sprout.
 const chosenBuddy = () => {
   const b = state.buddy;
-  return (b && b.pics && b.pics.buddies.find((x) => x.id === b.pics.chosen)) || null;
+  if (!b || !b.pics) return null;
+  const zen = ZEN.find((z) => z.id === b.pics.chosen);
+  return zen || b.pics.buddies.find((x) => x.id === b.pics.chosen) || null;
 };
 function buddyAvatar(cls) {
   const b = chosenBuddy();
+  if (b && b.key) return zenFace(b.key, cls);
   return b ? h('img', { class: `buddy-img ${cls || ''}`, src: `/buddy-pic/${b.id}`, alt: '' }) : buddyFace(cls);
+}
+
+// Zen friends: calm, original characters drawn right here (no pictures to load). Ids match BUILTIN_BUDDIES on the server.
+const ZEN = [
+  { id: -1, key: 'panda', name: 'Bao the zen panda' },
+  { id: -2, key: 'dragon', name: 'Jade the zen dragon' },
+  { id: -3, key: 'cat', name: 'Mochi the zen cat' },
+];
+function zenFace(key, cls) {
+  const s = document.createElementNS(SVG_NS, 'svg');
+  s.setAttribute('viewBox', '0 0 100 100'); s.setAttribute('aria-hidden', 'true');
+  s.setAttribute('class', `zen zen-${key}${cls ? ` ${cls}` : ''}`);
+  const add = (tag, attrs) => { const e = document.createElementNS(SVG_NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); s.append(e); };
+  const line = (d, stroke, w) => add('path', { d, stroke, 'stroke-width': w, 'stroke-linecap': 'round', fill: 'none' });
+  const cheeks = () => { add('circle', { cx: 30, cy: 68, r: 4, fill: '#f4a58a', opacity: '.55' }); add('circle', { cx: 70, cy: 68, r: 4, fill: '#f4a58a', opacity: '.55' }); };
+  if (key === 'panda') {
+    add('circle', { cx: 27, cy: 30, r: 10, fill: '#2b2a22' }); add('circle', { cx: 73, cy: 30, r: 10, fill: '#2b2a22' });
+    add('circle', { cx: 50, cy: 58, r: 32, fill: '#fbfaf5', stroke: '#d9d6c8', 'stroke-width': 1.5 });
+    add('ellipse', { cx: 36, cy: 55, rx: 8, ry: 10, fill: '#2b2a22', transform: 'rotate(-20 36 55)' });
+    add('ellipse', { cx: 64, cy: 55, rx: 8, ry: 10, fill: '#2b2a22', transform: 'rotate(20 64 55)' });
+    line('M31 55 Q36 60 41 55', '#fff', 2.6); line('M59 55 Q64 60 69 55', '#fff', 2.6);
+    add('ellipse', { cx: 50, cy: 66, rx: 5, ry: 3.6, fill: '#2b2a22' });
+    line('M50 69 V72', '#2b2a22', 2.2); line('M44 73 Q50 78 56 73', '#2b2a22', 2.4);
+    cheeks();
+    add('path', { d: 'M50 27 C50 18 56 14 62 15 C61 22 57 27 50 27z', fill: '#6fb04e' });
+  } else if (key === 'dragon') {
+    add('path', { d: 'M24 46 L8 40 L14 58 L26 56z', fill: '#8fe0c0' }); add('path', { d: 'M76 46 L92 40 L86 58 L74 56z', fill: '#8fe0c0' });
+    add('path', { d: 'M38 30 Q34 14 42 10 Q44 22 46 30z', fill: '#e8a33d' }); add('path', { d: 'M62 30 Q66 14 58 10 Q56 22 54 30z', fill: '#e8a33d' });
+    add('circle', { cx: 50, cy: 58, r: 30, fill: '#5fbf9a' });
+    add('ellipse', { cx: 50, cy: 70, rx: 17, ry: 13, fill: '#bfeedb' });
+    add('circle', { cx: 45, cy: 69, r: 1.7, fill: '#2f6b55' }); add('circle', { cx: 55, cy: 69, r: 1.7, fill: '#2f6b55' });
+    line('M33 54 Q38 59 43 54', '#1f3d33', 3); line('M57 54 Q62 59 67 54', '#1f3d33', 3);
+    line('M43 76 Q50 81 57 76', '#1f3d33', 2.4);
+    line('M30 66 Q16 70 12 80', '#e8a33d', 2.2); line('M70 66 Q84 70 88 80', '#e8a33d', 2.2);
+    cheeks();
+    [42, 50, 58].forEach((x) => add('circle', { cx: x, cy: 42, r: 2, fill: '#8fe0c0' }));
+  } else {
+    add('path', { d: 'M24 40 L30 12 L48 30z', fill: '#f6efe2' }); add('path', { d: 'M29 36 L32 20 L42 30z', fill: '#f4a58a' });
+    add('path', { d: 'M76 40 L70 12 L52 30z', fill: '#f6efe2' }); add('path', { d: 'M71 36 L68 20 L58 30z', fill: '#f4a58a' });
+    add('circle', { cx: 50, cy: 60, r: 31, fill: '#f6efe2', stroke: '#e2d6bf', 'stroke-width': 1.5 });
+    add('ellipse', { cx: 66, cy: 44, rx: 12, ry: 9, fill: '#e8a33d', opacity: '.85', transform: 'rotate(20 66 44)' });
+    line('M32 56 Q37 61 42 56', '#2b2a22', 3); line('M58 56 Q63 61 68 56', '#2b2a22', 3);
+    add('path', { d: 'M46 64 L54 64 L50 69z', fill: '#f08fa3' });
+    line('M50 69 V72 M50 72 Q45 76 41 73 M50 72 Q55 76 59 73', '#2b2a22', 2);
+    line('M30 66 L14 63 M30 70 L14 72 M70 66 L86 63 M70 70 L86 72', '#b9a98a', 1.6);
+    cheeks();
+  }
+  return s;
 }
 
 async function mountBuddy(c, openWith) {
@@ -1268,7 +1321,7 @@ async function mountBuddy(c, openWith) {
   // Pick a buddy: the sprout, or any picture a parent added.
   const choose = () => {
     talk('Who do you want as your buddy? Tap one!');
-    const options = [{ id: null, name: 'Kai the sprout' }, ...state.buddy.pics.buddies];
+    const options = [{ id: null, name: 'Kai the sprout' }, ...ZEN, ...state.buddy.pics.buddies];
     pic.replaceChildren(h('div', { class: 'buddy-pick' }, options.map((o) =>
       h('button', { class: 'pick', 'aria-pressed': String((state.buddy.pics.chosen ?? null) === o.id), onclick: async () => {
         try {
@@ -1276,7 +1329,27 @@ async function mountBuddy(c, openWith) {
           state.buddy.pics.chosen = r.chosen;
           mountBuddy(c, `Yay! I’m ${o.name}, your new buddy! Let’s look at your moments together. 🎉`);
         } catch (ex) { talk(ex.message); }
-      } }, o.id ? h('img', { src: `/buddy-pic/${o.id}`, alt: '' }) : buddyFace(), h('span', null, o.name)))));
+      } }, o.key ? zenFace(o.key) : o.id ? h('img', { src: `/buddy-pic/${o.id}`, alt: '' }) : buddyFace(), h('span', null, o.name)))));
+  };
+
+  // Three slow breaths with a growing and shrinking circle. Stops by itself if the panel changes or closes.
+  const zenBreath = () => {
+    const word = h('span', { class: 'zen-word' }, 'Ready?');
+    const orb = h('div', { class: 'zen-orb' }, word);
+    say.textContent = `Let’s take 3 slow breaths together, ${name}. Sit tall and let your shoulders drop.`;
+    pic.replaceChildren(orb);
+    let round = 0;
+    const breatheIn = () => {
+      if (!orb.isConnected) return;
+      if (round === 3) { orb.className = 'zen-orb'; word.textContent = '😊'; say.textContent = pick(ZEN_DONE); return; }
+      round += 1; orb.className = 'zen-orb in'; word.textContent = 'Breathe in…';
+      setTimeout(() => {
+        if (!orb.isConnected) return;
+        orb.className = 'zen-orb out'; word.textContent = 'Breathe out…';
+        setTimeout(breatheIn, 4000);
+      }, 4000);
+    };
+    setTimeout(breatheIn, 1500);
   };
 
   const topics = [];
@@ -1300,7 +1373,8 @@ async function mountBuddy(c, openWith) {
   });
   if (state.filter !== 'all') topics.push(['🌈 Show everything', () => goTo('all')]);
   topics.push(['🎉 Cheer me on', () => talk(pick(CHEERS))]);
-  if (state.buddy.pics.buddies.length) topics.push(['🎭 Change my buddy', choose]);
+  topics.push(['🧘 Zen breath', zenBreath]);
+  topics.push(['🎭 Pick my friend', choose]);
 
   chips.replaceChildren(...topics.map(([label, fn]) => h('button', { class: 'chip', onclick: fn }, label)));
   const hello = () => talk(f.total > 0

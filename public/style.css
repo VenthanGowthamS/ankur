@@ -679,3 +679,17 @@ body::before {
 :root[data-theme="light"] .uni-map .land { fill: #f3efe2; stroke: #c9c0a6; }
 :root[data-theme="light"] .uni-map .pin text { fill: #1f1d16; stroke: #ffffffcc; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme]) .hero h1, :root:not([data-theme]) .hero p { text-shadow: none; } }
+
+/* ---------- Zen friends + breathing ---------- */
+.zen { animation: zen-breathe 5s ease-in-out infinite; transform-origin: 50% 70%; }
+@keyframes zen-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+.zen-orb {
+  width: 130px; height: 130px; margin: 6px auto 2px; border-radius: 50%; display: grid; place-items: center; text-align: center;
+  background: radial-gradient(circle at 35% 30%, var(--mint), var(--sky) 70%, var(--lilac));
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--sky) 22%, transparent), 0 10px 30px color-mix(in srgb, var(--sky) 35%, transparent);
+  transform: scale(.72); transition: transform 4s ease-in-out;
+}
+.zen-orb.in { transform: scale(1.18); }
+.zen-orb.out { transform: scale(.72); }
+.zen-word { font: 600 .95rem var(--serif); color: #12301f; padding: 0 10px; }
+@media (prefers-reduced-motion: reduce) { .zen { animation: none; } .zen-orb { transition-duration: 0s; } }

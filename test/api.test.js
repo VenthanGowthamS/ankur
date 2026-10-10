@@ -364,6 +364,9 @@ test('buddy pictures: parents upload, the kid chooses, everyone else is fenced o
 
   assert.equal((await call('PUT', '/api/children/1/buddy', { cookie: familyCookie, body: { buddyId: made.json.id } })).status, 403);
   assert.equal((await call('PUT', '/api/children/1/buddy', { cookie: kid, body: { buddyId: 9999 } })).status, 400);
+  assert.equal((await call('PUT', '/api/children/1/buddy', { cookie: kid, body: { buddyId: -9 } })).status, 400, 'only the built-in Zen friends exist');
+  assert.equal((await call('PUT', '/api/children/1/buddy', { cookie: kid, body: { buddyId: -2 } })).status, 200, 'kid can pick a built-in Zen friend');
+  assert.equal((await call('GET', '/api/children/1/buddies', { cookie: kid })).json.chosen, -2);
   assert.equal((await call('PUT', '/api/children/1/buddy', { cookie: kid, body: { buddyId: made.json.id } })).status, 200, 'kid picks');
   assert.equal((await call('GET', '/api/children/1/buddies', { cookie: kid })).json.chosen, made.json.id);
 
