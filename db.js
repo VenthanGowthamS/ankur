@@ -177,6 +177,7 @@ function openDb(dataDir) {
   ensureColumn(db, 'entries', 'kid_words', 'TEXT');
   ensureColumn(db, 'entries', 'kid_feeling', 'TEXT');
   ensureColumn(db, 'children', 'psle_year', 'INTEGER'); // optional; otherwise estimated from date of birth
+  ensureColumn(db, 'children', 'curriculum', "TEXT NOT NULL DEFAULT 'moe'"); // moe | cbse | ib | cambridge — which pathway the Goals tab shows
   ensureColumn(db, 'children', 'buddy_id', 'INTEGER'); // the Buddy picture this child chose; NULL = Ankur the sprout
   return db;
 }

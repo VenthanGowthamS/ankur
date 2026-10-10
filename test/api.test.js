@@ -555,6 +555,29 @@ test('download everything: a ZIP with every record, the original files and an of
   await call('DELETE', `/api/entries/${e.json.id}`, { cookie: parentCookie });
 });
 
+test('school systems: each child follows MOE, CBSE, IB or Cambridge, and goals use that system\'s stages', async () => {
+  const kid = await call('POST', '/api/children', { cookie: parentCookie, body: { name: 'Arjun', dob: '2018-05-01', curriculum: 'ib' } });
+  assert.equal(kid.status, 201);
+  assert.equal(kid.json.curriculum, 'ib');
+  assert.equal((await call('POST', '/api/children', { cookie: parentCookie, body: { name: 'X', curriculum: 'hogwarts' } })).status, 400, 'unknown system');
+  const plain = await call('POST', '/api/children', { cookie: parentCookie, body: { name: 'Default kid' } });
+  assert.equal(plain.json.curriculum, 'moe', 'MOE stays the default');
+
+  const g1 = await call('POST', `/api/children/${kid.json.id}/goals`, { cookie: parentCookie, body: { stage: 'ib_myp', title: 'A personal project she is proud of' } });
+  assert.equal(g1.status, 201);
+  const g2 = await call('POST', `/api/children/${kid.json.id}/goals`, { cookie: parentCookie, body: { stage: 'cbse12', title: 'JEE Main target rank' } });
+  assert.equal(g2.status, 201, 'any system\'s stage is valid, so goals survive a change of school');
+  assert.equal((await call('POST', `/api/children/${kid.json.id}/goals`, { cookie: parentCookie, body: { stage: 'grade-99', title: 'x' } })).status, 400);
+  await call('POST', `/api/children/${kid.json.id}/goals`, { cookie: parentCookie, body: { stage: 'university', title: 'IB Diploma: 38+ points' } });
+  await call('POST', `/api/children/${kid.json.id}/goals`, { cookie: parentCookie, body: { stage: 'ib_pyp', title: 'A PYP exhibition' } });
+  const list = await call('GET', `/api/children/${kid.json.id}/goals`, { cookie: parentCookie });
+  assert.deepEqual(list.json.map((g) => g.stage), ['cbse12', 'ib_pyp', 'ib_myp', 'university'], 'earlier stages first, university last');
+
+  const moved = await call('PUT', `/api/children/${kid.json.id}`, { cookie: parentCookie, body: { curriculum: 'cbse' } });
+  assert.equal(moved.json.curriculum, 'cbse');
+  assert.equal((await call('GET', `/api/children/${kid.json.id}/goals`, { cookie: parentCookie })).json.length, 4, 'switching systems keeps every goal');
+});
+
 // Keep last: it deliberately trips the login limit for this test client.
 test('login limits apply per account, not just per IP', async () => {
   assert.equal((await call('POST', '/api/users', { cookie: parentCookie, body: { name: 'Uncle', email: 'uncle@x.com', password: 'uncle-pass1', role: 'family' } })).status, 201);

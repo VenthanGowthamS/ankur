@@ -133,6 +133,147 @@
     },
   ];
 
+  // Each stage: `age` = the age in the year its exam is sat (so year = birth year + age; for MOE the
+  // PSLE year, if set, anchors it instead). `evidence` = which builder reads her record for this stage:
+  // talents (strongest areas), leaps (MOE co-curricular), subjects (subject strength), cas (IB), university.
+  PATHWAY[0].age = 12; PATHWAY[1].age = 16; PATHWAY[2].age = 18;
+  PATHWAY[0].evidence = 'talents'; PATHWAY[1].evidence = 'leaps'; PATHWAY[2].evidence = 'university';
+  PATHWAY[0].evidenceIntro = 'DSA-Sec talent areas, strongest first — built from her moments.';
+
+  // ---- Other school systems: many families (e.g. from India) are in international schools, not MOE.
+  // Same idea — what each transition asks for, and what her record already has. Rules as published in 2026.
+  const CBSE = [
+    {
+      key: 'cbse10', emoji: '🎒', title: 'Primary & middle → Class 10 boards', exam: 'Class 10 boards', age: 16, evidence: 'talents',
+      evidenceIntro: 'Where she is strongest — NEP 2020 and the Holistic Progress Card look well beyond marks.',
+      asks: [
+        'NEP 2020 restructures school as 5+3+3+4: Foundational (to Class 2), Preparatory (3–5), Middle (6–8) and Secondary (9–12).',
+        'Report cards are moving to the Holistic Progress Card: teacher, self, peer and parent assessment across physical, socio-emotional, cognitive, language, aesthetic and cultural development — not just marks.',
+        'Class 10 boards are held twice a year from 2026: the first (from mid-February) is compulsory; an optional second in May lets students improve up to three subjects. Internal assessment happens once.',
+        'Olympiads (SOF, ICAS, SASMO), arts, sport and service all count — and they help choose a stream for Class 11.',
+      ],
+      sources: [
+        ['CBSE: two Class 10 board exams from 2026', 'https://ianslive.in/cbse-announces-two-board-exams-for-class-10-from-2026--20250625172127'],
+        ['NCERT PARAKH: Holistic Progress Card', 'https://parakh.ncert.gov.in/hpc'],
+      ],
+    },
+    {
+      key: 'cbse12', emoji: '🏫', title: 'Class 11–12 → boards & entrance tests', exam: 'Class 12 boards', age: 18, evidence: 'subjects',
+      evidenceIntro: 'Subject strength from olympiads and exams — useful for choosing a stream and the entrance tests after Class 12.',
+      asks: [
+        'In Class 11 she picks a stream — Science (PCM or PCB), Commerce or Humanities — so subject strengths seen earlier matter.',
+        'Indian universities admit mostly through entrance tests: CUET-UG for central universities, JEE Main / Advanced for engineering (NITs, IITs), NEET-UG for medicine.',
+        'Living abroad: Indian citizens who studied Class 11 and 12 abroad (and OCI, PIO and foreign nationals) can apply to NITs and other institutes through DASA, which needs a valid JEE Main rank.',
+        'Universities abroad (UK, US, Singapore) accept CBSE Class 12, often with subject minimums, and look at the same record: depth, leadership and service.',
+      ],
+      sources: [
+        ['DASA eligibility for students abroad (2026)', 'https://demoweb.allenoverseas.com/exam/dasa/eligibility-criteria/'],
+        ['National Testing Agency (CUET-UG, JEE Main, NEET-UG)', 'https://nta.ac.in/'],
+      ],
+    },
+    {
+      key: 'university', emoji: '🎓', title: 'Class 12 → University', exam: 'CUET / JEE / NEET', age: 18, evidence: 'university',
+      asks: [
+        'India: entrance-test rank plus Class 12 marks decide most admissions; some private universities also interview and read portfolios.',
+        'US universities (Common App): holistic — depth in 3–4 activities over years, leadership and impact, not a long list.',
+        'UK universities (UCAS): subject depth — olympiads, reading and projects beyond the syllabus.',
+        'NUS, NTU and SMU: aptitude-based admission also weighs leadership, service and exceptional talent.',
+      ],
+      sources: [
+        ['US activities list & what officers weigh', 'https://collegeessayguy.com/blog/extracurricular-activities-guide'],
+        ['UK super-curricular activities', 'https://www.timeshighereducation.com/counsellor/admissions-processes-and-funding/what-are-supercurricular-activities-and-why-do-they'],
+      ],
+    },
+  ];
+  const IB = [
+    {
+      key: 'ib_pyp', emoji: '🎒', title: 'PYP → MYP', exam: 'PYP exhibition', age: 11, evidence: 'talents',
+      evidenceIntro: 'Where her curiosity already runs deep — good seeds for the PYP exhibition.',
+      asks: [
+        'The Primary Years Programme is for ages 3–12, built on inquiry: children ask questions, investigate and act on what they learn.',
+        'In the final PYP year, students run an exhibition — an inquiry into a real-world issue they choose, shared with the school community.',
+        'There are no external exams; growth is shown through portfolios and reflection, which is what this record is.',
+      ],
+      sources: [['IB: Primary Years Programme FAQ', 'https://ibo.org/globalassets/new-structure/recognition/pdfs/pyp-faqs-recognition.pdf']],
+    },
+    {
+      key: 'ib_myp', emoji: '🏫', title: 'MYP → Diploma', exam: 'MYP personal project', age: 16, evidence: 'cas',
+      evidenceIntro: 'Creativity, Activity and Service — the three strands of CAS, required in the Diploma. Building the habit now.',
+      asks: [
+        'Every MYP student completes a personal project in the final year: a self-directed, creative project on something they care about.',
+        'Schools can opt in to MYP eAssessment — e-portfolios of coursework and on-screen exams — for the MYP certificate.',
+        'CAS (Creativity, Activity, Service) runs through the whole Diploma, including a CAS project — so steady arts, sport and service now make it easy later.',
+      ],
+      sources: [
+        ['IB: MYP results, personal project and eAssessment (2025)', 'https://ibo.org/news/news-list/middle-years-programme-myp-students-receive-their-results-2025/'],
+        ['IB: Creativity, activity, service', 'https://ibo.org/programmes/diploma-programme/curriculum/creativity-activity-and-service/'],
+      ],
+    },
+    {
+      key: 'university', emoji: '🎓', title: 'Diploma → University', exam: 'IB Diploma', age: 18, evidence: 'university',
+      asks: [
+        'Six subjects graded 1–7 (at least three, usually four, at Higher Level), plus up to 3 points from Theory of Knowledge and the Extended Essay — 45 maximum, 24 to pass.',
+        'CAS is not graded, but the diploma is not awarded without it: she reflects on experiences against seven learning outcomes and completes a CAS project.',
+        'Universities worldwide make offers in total points and HL grades; the Extended Essay and CAS are strong material for US and UK applications.',
+      ],
+      sources: [
+        ['IB: Diploma passing criteria', 'https://ibo.org/about-the-ib/what-it-means-to-be-an-ib-student/recognizing-student-achievement/about-assessment/dp-passing-criteria/'],
+        ['IB: Creativity, activity, service', 'https://ibo.org/programmes/diploma-programme/curriculum/creativity-activity-and-service/'],
+      ],
+    },
+  ];
+  const CAMBRIDGE = [
+    {
+      key: 'cam_primary', emoji: '🎒', title: 'Primary → Lower Secondary', exam: 'Primary Checkpoint', age: 11, evidence: 'talents',
+      evidenceIntro: 'Where she is strongest — breadth matters most at this age.',
+      asks: [
+        'Cambridge Primary has six stages, roughly ages 5–11.',
+        'Cambridge Primary Checkpoint is taken at the end of Stage 6 (about age 11) in English, maths and science, with a report showing strengths and areas to work on.',
+        'Lower Secondary covers Stages 7–9; the Lower Secondary Checkpoint comes at the end of Stage 9, at about 14.',
+      ],
+      sources: [
+        ['Cambridge: Primary Checkpoint age group', 'https://help.cambridgeinternational.org/hc/en-gb/articles/360000055178-Which-age-group-of-learners-is-the-Cambridge-Primary-Checkpoint-for-and-when-is-the-transition-to-Cambridge-Lower-Secondary'],
+        ['Cambridge: Lower Secondary Checkpoint age group', 'https://help.cambridgeinternational.org/hc/en-gb/articles/360000055018-Which-age-group-of-learners-is-the-Cambridge-Lower-Secondary-Checkpoint-for'],
+      ],
+    },
+    {
+      key: 'cam_igcse', emoji: '🏫', title: 'Lower Secondary → IGCSE', exam: 'IGCSE', age: 16, evidence: 'subjects',
+      evidenceIntro: 'Subject strength from olympiads and exams — useful for choosing IGCSE and A Level subjects.',
+      asks: [
+        'Cambridge IGCSEs are usually taken in Year 10 or 11, at about 15–16, choosing from a wide range of subjects.',
+        'Results guide AS & A Level choices, so the subjects she enjoys and does well in now are worth noticing.',
+      ],
+      sources: [['Cambridge Pathway', 'https://cambridgeinternational.org/nz/about-us/Cambridge-pathway']],
+    },
+    {
+      key: 'university', emoji: '🎓', title: 'AS & A Level → University', exam: 'A Levels', age: 18, evidence: 'university',
+      asks: [
+        'Cambridge International AS & A Levels (usually three or four subjects) are the main route to universities in the UK, Singapore and many other countries.',
+        'UK universities (UCAS): subject depth — olympiads, reading and projects beyond the syllabus.',
+        'US universities (Common App): depth in 3–4 activities over years, leadership and impact.',
+      ],
+      sources: [
+        ['Cambridge Pathway', 'https://cambridgeinternational.org/nz/about-us/Cambridge-pathway'],
+        ['UK super-curricular activities', 'https://www.timeshighereducation.com/counsellor/admissions-processes-and-funding/what-are-supercurricular-activities-and-why-do-they'],
+      ],
+    },
+  ];
+  // [key, flag/emoji, label, stages]. MOE stays the default, so existing families see no change.
+  const CURRICULA = [
+    ['moe', '🇸🇬', 'Singapore MOE school', PATHWAY],
+    ['cbse', '🇮🇳', 'CBSE (India)', CBSE],
+    ['ib', '🌐', 'International Baccalaureate (IB)', IB],
+    ['cambridge', '📘', 'Cambridge International (IGCSE / A Level)', CAMBRIDGE],
+  ];
+  const ALL_STAGES = [...new Set(CURRICULA.flatMap(([, , , st]) => st.map((s) => s.key)))];
+
+  // IB CAS strands mapped onto our areas. Leadership roles and the CAS project come from moments with a role.
+  const CAS_STRANDS = [
+    ['Creativity', '🎨', ['art', 'dance', 'singing', 'stage', 'writing', 'coding', 'robotics', 'speech']],
+    ['Activity', '⚽', ['sports', 'swimming', 'gymnastics', 'martial', 'skating']],
+    ['Service', '🤝', ['community']],
+  ];
+
   // Goal ideas offered when adding a goal for each stage — a starting point, all editable.
   const GOAL_IDEAS = {
     psle: ['DSA-Sec in Science, maths & engineering', 'DSA-Sec in Sports & games', 'DSA-Sec in performing arts', 'DSA-Sec in Leadership',
@@ -141,6 +282,20 @@
       'Poly Early Admission for a chosen course', 'Represent the school at national level', 'Lead a CCA'],
     university: ['University Admission Score target for a chosen course', 'Aptitude-Based Admission portfolio',
       'US: 3–4 activities kept up for years', 'UK: reading and projects beyond the syllabus', 'A national or international award'],
+    cbse10: ['A national-level olympiad award (SOF / ICAS)', 'Strong Holistic Progress Card in every domain', 'Class 10 boards: 90% or better',
+      'Keep one art, one sport and one language going', 'Build a leadership record'],
+    cbse12: ['Choose a stream that fits her strengths', 'JEE Main target rank', 'NEET-UG target score', 'CUET-UG for a chosen university',
+      'Check DASA eligibility (Class 11–12 abroad)', 'Class 12 boards: 90% or better'],
+    ib_pyp: ['A PYP exhibition on an issue she cares about', 'Keep one art, one sport and one language going', 'Read widely in two languages'],
+    ib_myp: ['A personal project she is proud of', 'CAS habit: one creativity, one activity, one service a term', 'Lead something — a club, a team or a service project'],
+    cam_primary: ['Primary Checkpoint: strong in English, maths and science', 'Keep one art, one sport and one language going', 'Build a leadership record'],
+    cam_igcse: ['IGCSE: A* / A in favourite subjects', 'Pick A Level subjects that fit her strengths', 'A national or international award'],
+  };
+  // Final-stage ideas per school system (the 'university' stage is shared, the advice is not).
+  const UNI_IDEAS = {
+    cbse: ['JEE / NEET / CUET target for a chosen course', 'DASA application to NITs (if eligible)', 'US: 3–4 activities kept up for years', 'UK: reading and projects beyond the syllabus'],
+    ib: ['IB Diploma: 38+ points', 'An Extended Essay in a subject she loves', 'A CAS project with real impact', 'US: 3–4 activities kept up for years'],
+    cambridge: ['A Levels: A*AA in chosen subjects', 'UK: reading and projects beyond the syllabus', 'US: 3–4 activities kept up for years'],
   };
 
   // DSA-Sec talent areas, mapped onto Ankur's areas so the app can show where her evidence already is.
@@ -285,7 +440,7 @@
   // How the child felt, in their own words ("child voice", from learning stories).
   const FEELINGS = [['proud', '🤩', 'Proud'], ['happy', '😊', 'Happy'], ['calm', '😌', 'Calm'], ['tricky', '😤', 'It was tricky'], ['nervous', '😬', 'Nervous']];
 
-  const catalog = Object.freeze({ GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, AUTHORSHIP, QUALITIES, FEELINGS, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE });
+  const catalog = Object.freeze({ GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, AUTHORSHIP, QUALITIES, FEELINGS, LADDERS, EVENT_KINDS, PATHWAY, CURRICULA, ALL_STAGES, CAS_STRANDS, UNI_IDEAS, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE });
   if (typeof module === 'object' && module.exports) module.exports = catalog;
   else root.ANKUR = catalog;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

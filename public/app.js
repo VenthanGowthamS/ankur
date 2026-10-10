@@ -2,7 +2,7 @@
 /* Kaizen Folio — a private growth portfolio and extra-curricular tracker. Vanilla JS, no build step.
    All DOM is built with h() (never innerHTML with user data), so notes and titles can't inject markup. */
 
-const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, AUTHORSHIP, QUALITIES, FEELINGS, LADDERS, EVENT_KINDS, PATHWAY, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE } = window.ANKUR; // from catalog.js
+const { GROUPS, CATS, LEVELS, SUBJECTS, OLYMPIADS, ROLES, AUTHORSHIP, QUALITIES, FEELINGS, LADDERS, EVENT_KINDS, PATHWAY, CURRICULA, ALL_STAGES, CAS_STRANDS, UNI_IDEAS, GOAL_IDEAS, DSA_AREAS, GOAL_STATUS, UNI_REGIONS, UNIS, AGE_GUIDE } = window.ANKUR; // from catalog.js
 const subjectLabel = (k) => (SUBJECTS.find((x) => x[0] === k) || [, k])[1];
 const authorLabel = (k) => { const a = AUTHORSHIP.find((x) => x[0] === k); return a ? `${a[1]} ${a[2]}` : ''; };
 const qualityOf = (k) => QUALITIES.find((x) => x[0] === k);
@@ -709,7 +709,7 @@ function bookPages(c, entries, ladder, activities, opts, goals = []) {
   // Pathway goals, stage by stage
   if (goals.length) {
     pages.push(h('section', { class: 'b-sec' }, h('h2', null, '🎯 Pathway goals'),
-      PATHWAY.filter((s) => goals.some((g) => g.stage === s.key)).map((s) => h('div', { class: 'b-card b-goals' },
+      allStagesFor(c).filter((s) => goals.some((g) => g.stage === s.key)).map((s) => h('div', { class: 'b-card b-goals' },
         h('strong', null, `${s.emoji} ${s.title}`),
         goals.filter((g) => g.stage === s.key).map((g) => h('div', null,
           `${(GOAL_STATUS.find((x) => x[0] === g.status) || [, ''])[1]} — ${g.title}${g.target ? ` · ${g.target}` : ''}`))))));
@@ -745,11 +745,22 @@ function bookPages(c, entries, ladder, activities, opts, goals = []) {
 /* ---------- Goals: the pathway PSLE → secondary → JC/poly → university ----------
    Each stage shows what it asks for (from the catalog), the evidence already in her portfolio,
    and the goals we set — so "how do we get there" is answered by her own record. */
-const psleYearOf = (c) => c.psle_year || (c.dob ? Number(c.dob.slice(0, 4)) + 12 : null);
+// School systems: each child follows one (Singapore MOE by default; CBSE, IB or Cambridge for international schools).
+const curriculumOf = (c) => CURRICULA.find(([k]) => k === (c.curriculum || 'moe')) || CURRICULA[0];
+const stagesOf = (c) => curriculumOf(c)[3];
+// The child's own stages first, then any other system's stages that still hold goals (e.g. after switching schools).
+const allStagesFor = (c) => {
+  const mine = stagesOf(c);
+  const others = CURRICULA.flatMap(([, , , st]) => st).filter((s, i, a) => !mine.some((m) => m.key === s.key) && a.findIndex((x) => x.key === s.key) === i);
+  return [...mine, ...others];
+};
+// Year a stage's exam is sat: birth year + stage age. For MOE an exact PSLE year, if set, anchors it.
+const birthBase = (c) => ((c.curriculum || 'moe') === 'moe' && c.psle_year ? c.psle_year - 12 : c.dob ? Number(c.dob.slice(0, 4)) : null);
+const stageYear = (c, s) => { const b = birthBase(c); return b ? b + s.age : null; };
+const yearIsGuess = (c) => !((c.curriculum || 'moe') === 'moe' && c.psle_year);
 function stageNow(c) {
-  const p = psleYearOf(c), y = new Date().getFullYear();
-  if (!p || y <= p) return 'psle';
-  return y <= p + 4 ? 'secondary' : 'university';
+  const st = stagesOf(c), y = new Date().getFullYear();
+  return (st.find((s) => { const yr = stageYear(c, s); return !yr || y <= yr; }) || st[st.length - 1]).key;
 }
 const LEVEL_NAME = ['', 'School', 'Zonal', 'National', 'International'];
 const LANG_SUBJECTS = ['english', 'chinese', 'hindi'];
@@ -759,7 +770,7 @@ const yearsOf = (rows) => {
   const d = rows.map((r) => r.date).sort();
   return (parseDay(d[d.length - 1]) - parseDay(d[0])) / (365.25 * 864e5);
 };
-const yrs = (n) => (n >= 1 ? `${n.toFixed(1)} yrs` : n > 0 ? `${Math.max(1, Math.round(n * 12))} months` : 'just started');
+const yrs = (n) => (n >= 1 ? `${n.toFixed(1)} yrs` : n > 0 ? ((m) => `${m} month${m > 1 ? 's' : ''}`)(Math.max(1, Math.round(n * 12))) : 'just started');
 function inDsaArea(e, cats) {
   if (cats === 'role') return !!e.role;
   if (e.category === 'olympiad') return cats.includes('olympiad') ? !LANG_SUBJECTS.includes(e.subject) : cats.includes('chinese') && LANG_SUBJECTS.includes(e.subject);
@@ -774,7 +785,8 @@ const evRow = (icon, label, value, detail, gap, pctWidth) => h('div', { class: `
     pctWidth != null && h('div', { class: 'meter' }, h('span', { 'data-w': pctWidth })),
     h('div', { class: 'small muted' }, value ? detail : gap)));
 
-function evidenceFor(stage, entries, activities) {
+function evidenceFor(s, entries, activities) {
+  const stage = s.evidence;
   const roles = entries.filter((e) => e.role);
   const community = entries.filter((e) => e.category === 'community');
   const repped = entries.filter((e) => e.level);
@@ -782,7 +794,7 @@ function evidenceFor(stage, entries, activities) {
   entries.forEach((e) => { if (!byCat.has(e.category)) byCat.set(e.category, []); byCat.get(e.category).push(e); });
   const latest = (rows) => rows.slice().sort((a, b) => b.date.localeCompare(a.date))[0];
 
-  if (stage === 'psle') {
+  if (stage === 'talents') {
     // Where would a DSA-Sec application be strongest? Count, highest level and years of commitment per talent area.
     const areas = DSA_AREAS.map(([label, icon, cats]) => {
       const rows = entries.filter((e) => inDsaArea(e, cats));
@@ -791,7 +803,7 @@ function evidenceFor(stage, entries, activities) {
     }).sort((a, b) => b.strength - a.strength);
     const max = Math.max(1, ...areas.map((a) => a.strength));
     return [
-      h('p', { class: 'small muted' }, 'DSA-Sec talent areas, strongest first — built from her moments.'),
+      h('p', { class: 'small muted' }, s.evidenceIntro || 'Her strongest areas first — built from her moments.'),
       ...areas.map((a, i) => {
         const row = evRow(a.icon, a.label, a.rows.length,
           [`${a.rows.length} moment${a.rows.length > 1 ? 's' : ''}`, a.best && `best: ${LEVEL_NAME[a.best]} level`, yrs(yearsOf(a.rows))].filter(Boolean).join(' · '),
@@ -801,7 +813,42 @@ function evidenceFor(stage, entries, activities) {
       }),
     ];
   }
-  if (stage === 'secondary') {
+  if (stage === 'subjects') {
+    // Subject strength: olympiads and exams with a subject, best % and highest level per subject.
+    const bySubj = new Map();
+    entries.filter((e) => e.subject && ['olympiad', 'exam'].includes(e.category)).forEach((e) => {
+      if (!bySubj.has(e.subject)) bySubj.set(e.subject, []);
+      bySubj.get(e.subject).push(e);
+    });
+    const rows = [...bySubj].map(([k, list]) => {
+      const p = list.map(pct).filter((x) => x != null);
+      return { k, list, best: p.length ? Math.max(...p) : null, avg: p.length ? Math.round(p.reduce((a, b) => a + b, 0) / p.length) : null, lvl: bestLevel(list) };
+    }).sort((a, b) => (b.best ?? -1) - (a.best ?? -1) || b.list.length - a.list.length);
+    return [
+      h('p', { class: 'small muted' }, s.evidenceIntro || 'Subject strength from olympiads and exams.'),
+      ...(rows.length ? rows.map((r) => evRow('📘', subjectLabel(r.k), r.list.length,
+        [`${r.list.length} result${r.list.length > 1 ? 's' : ''}`, r.best != null && `best ${r.best}%`, r.avg != null && r.list.length > 1 && `average ${r.avg}%`, r.lvl && `up to ${LEVEL_NAME[r.lvl]} level`].filter(Boolean).join(' · '),
+        '', r.best ?? 0))
+        : [evRow('📘', 'Subjects', 0, '', 'No olympiads or exams with a subject yet — set “Subject” and “Score” on those moments.')]),
+    ];
+  }
+  if (stage === 'cas') {
+    // IB CAS: Creativity, Activity, Service from her areas, plus initiative (roles) and reflection (her own words).
+    const strands = CAS_STRANDS.map(([label, icon, cats]) => {
+      const list = entries.filter((e) => cats.includes(e.category));
+      const last = latest(list);
+      return evRow(icon, label, list.length, [`${list.length} moment${list.length > 1 ? 's' : ''}`, yrs(yearsOf(list)), last && `latest: ${last.title}`].filter(Boolean).join(' · '),
+        label === 'Service' ? 'No service yet — community and volunteering moments go in the Community area.' : `No ${label.toLowerCase()} moments yet.`);
+    });
+    const reflected = entries.filter((e) => e.kid_words);
+    return [
+      h('p', { class: 'small muted' }, s.evidenceIntro),
+      ...strands,
+      evRow('👑', 'Initiative — CAS project material', roles.length, roles.length ? `latest: ${latest(roles).role} — ${latest(roles).title}` : '', 'No roles yet. Leading or organising something is the seed of a CAS project.'),
+      evRow('💭', 'Reflection — in her own words', reflected.length, `${reflected.length} moment${reflected.length > 1 ? 's' : ''} with her own words`, 'CAS is assessed through reflection. Tap “✏️ words” on a moment so she can say what she learned.'),
+    ];
+  }
+  if (stage === 'leaps') {
     const longest = [...byCat].map(([k, rows]) => [k, yearsOf(rows)]).sort((a, b) => b[1] - a[1])[0];
     const r = latest(roles);
     return [
@@ -837,18 +884,20 @@ async function viewGoals(main) {
     api('GET', `/api/children/${c.id}/activities`),
     api('GET', `/api/children/${c.id}/goals`),
   ]);
-  const psle = psleYearOf(c);
+  const stages = stagesOf(c);
+  const [curKey, curFlag, curName] = curriculumOf(c);
   const now = stageNow(c);
   const name = c.nickname || c.name;
+  const firstYear = stageYear(c, stages[0]);
 
-  const steps = h('div', { class: 'path-steps', role: 'list' }, PATHWAY.map((s, i) => h('a', {
+  const steps = h('div', { class: 'path-steps', role: 'list' }, stages.map((s, i) => h('a', {
     class: `path-step${s.key === now ? ' now' : ''}`, role: 'listitem', href: `#stage-${s.key}`,
     onclick: (ev) => { ev.preventDefault(); const d = document.getElementById(`stage-${s.key}`); d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); },
   },
   h('span', { class: 'ps-ic' }, s.emoji),
   h('span', { class: 'ps-t' }, s.exam),
-  h('span', { class: 'ps-y' }, psle ? `≈ ${psle + s.offset}` : '—'),
-  i < PATHWAY.length - 1 ? h('span', { class: 'ps-arrow', 'aria-hidden': 'true' }, '→') : null)));
+  h('span', { class: 'ps-y' }, stageYear(c, s) ? `≈ ${stageYear(c, s)}` : '—'),
+  i < stages.length - 1 ? h('span', { class: 'ps-arrow', 'aria-hidden': 'true' }, '→') : null)));
 
   const goalCard = (g) => {
     const rows = g.category ? entries.filter((e) => e.category === g.category).sort((a, b) => b.date.localeCompare(a.date)) : [];
@@ -879,12 +928,12 @@ async function viewGoals(main) {
       h('summary', null,
         h('span', { class: 'st-ic' }, s.emoji),
         h('div', { class: 'main' }, h('h2', null, s.title),
-          h('div', { class: 'small muted' }, [`${s.exam}${psle ? ` ≈ ${psle + s.offset}` : ''}`, s.key === now && 'where she is now', mine.length && `${done}/${mine.length} goals achieved`].filter(Boolean).join(' · ')))),
+          h('div', { class: 'small muted' }, [`${s.exam}${stageYear(c, s) ? ` ≈ ${stageYear(c, s)}` : ''}`, s.key === now && 'where she is now', mine.length && `${done}/${mine.length} goals achieved`].filter(Boolean).join(' · ')))),
       h('div', { class: 'stage-body' },
         h('h3', null, 'What it asks for'),
         h('ul', { class: 'asks' }, s.asks.map((a) => h('li', null, a))),
         h('h3', null, `${name}’s evidence so far`),
-        h('div', { class: 'evidence' }, evidenceFor(s.key, entries, activities)),
+        h('div', { class: 'evidence' }, evidenceFor(s, entries, activities)),
         h('div', { class: 'section-head' }, h('h3', null, 'Our goals'), h('button', { class: 'btn small primary', onclick: () => goalForm(c, s.key) }, '＋ Goal')),
         mine.length ? h('div', { class: 'list' }, mine.map(goalCard)) : h('div', { class: 'empty small' }, 'No goals for this stage yet. Tap ＋ Goal — there are ideas to start from.'),
         h('p', { class: 'sources small muted' }, 'Rules as published in 2026 — they change, so check each year. Sources: ',
@@ -895,12 +944,21 @@ async function viewGoals(main) {
   main.replaceChildren(
     h('section', { class: 'hero goals-hero' },
       h('h1', null, `${name}’s pathway`),
-      h('p', { class: 'muted' }, psle
-        ? `PSLE ≈ ${psle}${c.psle_year ? '' : ' (estimated from the birthday — set the exact year in Family → Edit profile)'}. Each stage shows what it asks for, what her record already has, and the goals you set.`
-        : 'Add her date of birth or PSLE year in Family → Edit profile to see the timeline.'),
+      h('div', { class: 'row' }, h('span', { class: 'eyebrow' }, `${curFlag} ${curName}`),
+        h('button', { class: 'link small', onclick: () => childForm(c) }, 'Change school system')),
+      h('p', { class: 'muted' }, firstYear
+        ? `${stages[0].exam} ≈ ${firstYear}${yearIsGuess(c) ? ' (estimated from the birthday)' : ''}. Each stage shows what it asks for, what her record already has, and the goals you set.`
+        : 'Add her date of birth in Family → Edit profile to see the timeline.'),
       steps),
-    ...PATHWAY.map(stageCard),
-    uniSection(c, now, psle));
+    ...stages.map(stageCard),
+    ...(() => {
+      // Goals set under another school system (e.g. before moving schools) are kept, never hidden.
+      const other = goals.filter((g) => !stages.some((s) => s.key === g.stage));
+      return other.length ? [h('section', { class: 'card stage' }, h('h2', null, '🗂️ Goals from another school system'),
+        h('p', { class: 'small muted' }, 'Kept from before a change of school. Edit one to move it to a current stage.'),
+        h('div', { class: 'list' }, other.map(goalCard)))] : [];
+    })(),
+    uniSection(c, now, firstYear, stages[0].key));
   // meter widths are set here, not inline, so the strict CSP (no inline styles) stays intact
   main.querySelectorAll('.meter span[data-w]').forEach((el) => { el.style.width = `${el.dataset.w}%`; });
 }
@@ -968,15 +1026,15 @@ function uniMap(region, onPick) {
   return svg;
 }
 
-function uniSection(c, now, psle) {
+function uniSection(c, now, firstYear, firstKey) {
   const sec = h('section', { class: 'card unis', id: 'universities' });
-  const parked = now === 'psle' && !state.unisOpen;
+  const parked = now === firstKey && !state.unisOpen;
   const age = c.dob ? Math.floor((Date.now() - parseDay(c.dob)) / (365.25 * 864e5)) : null;
   const draw = () => {
     if (parked && !state.unisOpen) {
       sec.replaceChildren(
         h('div', { class: 'unis-head' }, h('span', { class: 'st-ic' }, '🌍'), h('div', null, h('h2', null, 'Universities'),
-          h('div', { class: 'small muted' }, `Parked until secondary school${psle ? ` (≈ ${psle + 1})` : ''}`))),
+          h('div', { class: 'small muted' }, `Parked until secondary school${firstYear ? ` (≈ ${firstYear + 1})` : ''}`))),
         h('p', null, 'At this age the best preparation for any university is breadth and enjoyment. A target university this early tends to narrow what a child is allowed to love — so we keep this out of sight until she leaves primary school.'),
         h('p', { class: 'small muted' }, 'She never sees this page; it lives only in your Goals tab.'),
         h('button', { class: 'btn', onclick: () => { state.unisOpen = true; draw(); } }, 'Look anyway'));
@@ -1023,7 +1081,7 @@ function uniSection(c, now, psle) {
         h('div', { class: `age-row${i === ageNow ? ' now' : ''}` }, h('div', { class: 'age-k' }, h('b', null, ages), h('span', null, stage)), h('p', null, text)))),
       list,
       h('p', { class: 'small muted' }, 'Rules change almost every year — each card links to the official page, which always wins. ',
-        now === 'psle' ? h('button', { class: 'link', onclick: () => { state.unisOpen = false; draw(); } }, 'Park this again') : null));
+        now === firstKey ? h('button', { class: 'link', onclick: () => { state.unisOpen = false; draw(); } }, 'Park this again') : null));
   };
   draw();
   return sec;
@@ -1031,9 +1089,13 @@ function uniSection(c, now, psle) {
 
 function goalForm(c, stage, g, prefill = {}) {
   const editing = !!g;
-  const ideas = h('datalist', { id: 'goal-ideas' }, (GOAL_IDEAS[stage] || []).map((t) => h('option', { value: t })));
+  const stages = stagesOf(c);
+  const cur = curriculumOf(c)[0];
+  const ideaList = stage === 'university' && cur !== 'moe' ? UNI_IDEAS[cur] : GOAL_IDEAS[stage];
+  const ideas = h('datalist', { id: 'goal-ideas' }, (ideaList || []).map((t) => h('option', { value: t })));
+  const stageOpts = [...stages, ...allStagesFor(c).filter((s) => s.key === (g && g.stage) && !stages.includes(s))];
   openForm({
-    title: editing ? 'Edit goal' : `New goal — ${(PATHWAY.find((s) => s.key === stage) || {}).title || ''}`,
+    title: editing ? 'Edit goal' : `New goal — ${(stages.find((s) => s.key === stage) || {}).title || ''}`,
     submitLabel: editing ? 'Save' : 'Add goal',
     values: g || { stage, status: 'working', ...prefill },
     fields: [
@@ -1042,7 +1104,7 @@ function goalForm(c, stage, g, prefill = {}) {
       { name: 'category', label: 'Linked area — its moments show up as progress', type: 'select', options: [['', '— none —'], ...catOptions()] },
       { name: 'due', label: 'By when', type: 'date' },
       { name: 'status', label: 'Status', type: 'select', options: GOAL_STATUS },
-      { name: 'stage', label: 'Stage', type: 'select', options: PATHWAY.map((s) => [s.key, `${s.emoji} ${s.title}`]) },
+      { name: 'stage', label: 'Stage', type: 'select', options: stageOpts.map((s) => [s.key, `${s.emoji} ${s.title}`]) },
       { name: 'notes', label: 'How we’ll get there', type: 'textarea', max: 2000 },
     ],
     extra: ideas,
@@ -1241,7 +1303,7 @@ async function viewSettings(main) {
     parts.push(
       h('div', { class: 'section-head' }, h('h2', null, `${c.nickname || c.name}’s profile`),
         h('button', { class: 'btn small', onclick: () => childForm(c) }, 'Edit')),
-      h('div', { class: 'card' }, h('strong', null, c.name), h('div', { class: 'muted small' }, [c.dob && `Born ${fmtDate(c.dob)} (${ageText(c.dob)})`, c.bio].filter(Boolean).join(' · ') || 'Add a birthday and a short bio.')),
+      h('div', { class: 'card' }, h('strong', null, c.name), h('div', { class: 'muted small' }, [c.dob && `Born ${fmtDate(c.dob)} (${ageText(c.dob)})`, `${curriculumOf(c)[1]} ${curriculumOf(c)[2]}`, c.bio].filter(Boolean).join(' · ') || 'Add a birthday and a short bio.')),
       h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => childForm(null) }, '＋ Add another child')),
       h('div', { class: 'card item' },
         h('div', { class: 'main' }, h('div', { class: 'title' }, `See what ${c.nickname || c.name} sees`),
@@ -1324,7 +1386,9 @@ function childForm(c) {
       { name: 'nickname', label: 'Short name shown in the app', max: 60 },
       { name: 'dob', label: 'Date of birth', type: 'date' },
       { name: 'bio', label: 'A line about them', type: 'textarea', max: 2000 },
-      { name: 'psle_year', label: 'PSLE year', type: 'number', hint: 'Leave blank and we estimate it from the birthday (Primary 6 is the year they turn 12). Set it if different.' },
+      { name: 'curriculum', label: 'School system — sets the Goals pathway', type: 'select', options: CURRICULA.map(([k, f, l]) => [k, `${f} ${l}`]), default: 'moe',
+        hint: 'MOE for Singapore government schools; CBSE, IB or Cambridge for international schools. You can change it any time — goals are kept.' },
+      { name: 'psle_year', label: 'PSLE year (MOE only)', type: 'number', hint: 'Leave blank and we estimate it from the birthday (Primary 6 is the year they turn 12). Set it if different.' },
     ],
     onSubmit: async ({ values }) => {
       if (editing) { const u = await api('PUT', `/api/children/${c.id}`, values); Object.assign(c, u); }

@@ -19,7 +19,8 @@ const AUTHORSHIP = catalog.AUTHORSHIP.map(([k]) => k);
 const QUALITIES = catalog.QUALITIES.map(([k]) => k);
 const FEELINGS = catalog.FEELINGS.map(([k]) => k);
 const EVENT_KINDS = catalog.EVENT_KINDS.map(([k]) => k);
-const STAGES = catalog.PATHWAY.map((s) => s.key);
+const STAGES = catalog.ALL_STAGES; // every school system's stages (MOE, CBSE, IB, Cambridge)
+const CURRICULA = catalog.CURRICULA.map(([k]) => k);
 const GOAL_STATUS = catalog.GOAL_STATUS.map(([k]) => k);
 const SESSION_DAYS = 90; // sliding: every visit renews it, so regular use never signs you out
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -48,7 +49,8 @@ const RESOURCES = {
   // Goals on the pathway: PSLE -> secondary -> JC/poly -> university.
   goals: {
     table: 'goals',
-    order: "CASE stage WHEN 'psle' THEN 0 WHEN 'secondary' THEN 1 ELSE 2 END, status = 'achieved', sort, id",
+    // Earlier stages first (in catalog order, university last), then open goals before achieved ones.
+    order: `CASE stage ${STAGES.filter((k) => k !== 'university').map((k, i) => `WHEN '${k}' THEN ${i}`).join(' ')} ELSE 99 END, status = 'achieved', sort, id`,
     fields: {
       stage: { type: 'enum', values: STAGES, req: true },
       title: { type: 'str', max: 160, req: true },
@@ -122,6 +124,7 @@ const CHILD_FIELDS = {
   dob: { type: 'date' },
   bio: { type: 'str', max: 2000 },
   psle_year: { type: 'int', min: 2000, max: 2100 },
+  curriculum: { type: 'enum', values: CURRICULA },
 };
 
 // Returns an object of validated column values. With partial=true, only the
@@ -381,8 +384,8 @@ function createApp({ dataDir, cookieSecure = false } = {}) {
   app.post('/api/children', requireParent, (req, res) => {
     const v = parseFields(CHILD_FIELDS, req.body);
     const id = tx(db, () => {
-      const r = db.prepare('INSERT INTO children (name, nickname, dob, bio, psle_year) VALUES (?, ?, ?, ?, ?)')
-        .run(v.name, v.nickname ?? null, v.dob ?? null, v.bio ?? null, v.psle_year ?? null);
+      const r = db.prepare('INSERT INTO children (name, nickname, dob, bio, psle_year, curriculum) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(v.name, v.nickname ?? null, v.dob ?? null, v.bio ?? null, v.psle_year ?? null, v.curriculum ?? 'moe');
       seedLadder(db, Number(r.lastInsertRowid));
       return Number(r.lastInsertRowid);
     });
